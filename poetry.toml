@@ -1,0 +1,33 @@
+# Poetry project-level configuration
+# This file should be committed to version control
+
+[virtualenvs]
+# Create virtual environment in project directory (.venv/)
+in-project = true
+
+# Use the currently active Python interpreter if available
+prefer-active-python = true
+
+[installer]
+# Enable parallel installation for faster dependency resolution
+parallel = true
+
+# Maximum number of workers for parallel installation
+max-workers = 4
+
+[build]
+# Generate setup.py for backward compatibility
+generate-setup-file = false
+
+# Exclude common files/directories from builds
+exclude = [
+    "*.pyc",
+    "__pycache__/",
+    ".git/",
+    ".venv/",
+    "tests/",
+    "docs/",
+    ".pytest_cache/",
+    ".coverage",
+    "*.log"
+]

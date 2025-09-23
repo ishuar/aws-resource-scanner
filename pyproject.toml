@@ -1,0 +1,138 @@
+[build-system]
+requires = [
+    "Programming Language :: Python :: 3.10",
+    "poetry-core"
+]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "aws-service-scanner"
+version = "1.0.0"
+description = "AWS Multi-Service Scanner with tag-based filtering and advanced optimizations"
+authors = ["Ishan Sharma <ishansharma887@gmail.com>"]
+readme = "README.md"
+license = "MIT"
+homepage = "https://github.com/ishuar/aws-service-scanner"
+repository = "https://github.com/ishuar/aws-service-scanner/tree/main"
+keywords = ["aws", "scanner", "cloud", "infrastructure", "devops"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+packages = [
+    {include = "aws_scanner_lib"},
+    {include = "services"},
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+boto3 = "^1.40.34"
+botocore = "^1.40.34"
+click = "^8.3.0"
+deepdiff = "^8.6.1"
+jmespath = "^1.0.1"
+markdown-it-py = "^4.0.0"
+mdurl = "^0.1.2"
+orderly-set = "^5.5.0"
+pyfiglet = "^1.0.4"
+Pygments = "^2.19.2"
+python-dateutil = "^2.9.0"
+rich = "^14.1.0"
+s3transfer = "^0.14.0"
+setuptools = "^80.9.0"
+shellingham = "^1.5.4"
+six = "^1.17.0"
+typer = "^0.17.4"
+typing-extensions = "^4.15.0"
+urllib3 = "^2.5.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.0"
+pytest-cov = "^7.0.0"
+black = "^25.7.0"
+flake8 = "^6.0.0"
+mypy = "^1.18.0"
+pre-commit = "^4.3.0"
+
+[tool.poetry.scripts]
+aws-scanner = "aws_scanner:app"
+aws-service-scanner = "aws_scanner:app"
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "."]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--verbose --tb=short --cov=aws_scanner_lib --cov=services --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["aws_scanner_lib", "services"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/build/*",
+    "*/dist/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
