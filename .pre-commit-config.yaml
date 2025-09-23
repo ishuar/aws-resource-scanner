@@ -50,6 +50,6 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: detect-private-key
-      - id: detect_aws_credentials
+      - id: detect-aws-credentials
         args:
           - --allow-missing-credentials
