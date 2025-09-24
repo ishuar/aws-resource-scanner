@@ -32,7 +32,7 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: [boto3, botocore, typer, rich]
-        files: ^(aws_scanner_lib|services|tests|aws_scanner|cli)/.*\.py$
+        files: ^((aws_scanner_lib|services|tests)/.*\.py|cli\.py|aws_scanner\.py)$
         args:
           - "--ignore-missing-imports"
           - "--explicit-package-bases"

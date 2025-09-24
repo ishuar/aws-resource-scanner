@@ -101,6 +101,12 @@ warn_unreachable = true
 strict_equality = true
 explicit_package_bases = true
 ignore_missing_imports = true
+files = [
+          'aws_scanner_lib/*.py',
+          'services/*.py',
+          'cli.py',
+          'aws_scanner.py'
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "."]

@@ -8,38 +8,35 @@ supports multiple regions, and outputs results in JSON or table format.
 
 This version uses modular service scanners for better code organization.
 """
-
 import os
 import sys
-from pathlib import Path
-from typing import List, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import time
+from pathlib import Path
+from typing import Any, Callable, List, Optional
 
 import boto3
 import botocore
 import botocore.config
-from botocore.exceptions import ClientError, NoCredentialsError
+import pyfiglet
 import typer
+from botocore.exceptions import ClientError, NoCredentialsError
 from rich.console import Console
 from rich.progress import (
+    BarColumn,
     Progress,
     SpinnerColumn,
-    TextColumn,
-    BarColumn,
     TaskProgressColumn,
+    TextColumn,
 )
-import pyfiglet
+
+# Import modular components
+from aws_scanner_lib.outputs import compare_with_existing, output_results
+from aws_scanner_lib.scan import scan_region
 
 # Add the script's directory to the Python path to find modules
 script_dir = Path(__file__).parent.absolute()
 if str(script_dir) not in sys.path:
     sys.path.insert(0, str(script_dir))
-
-# Import modular components
-from aws_scanner_lib.cache import get_cached_result, cache_result
-from aws_scanner_lib.scan import scan_service, scan_region
-from aws_scanner_lib.outputs import output_results, compare_with_existing
 
 app = typer.Typer()
 console = Console()
@@ -51,7 +48,7 @@ SUPPORTED_SERVICES = ["ec2", "s3", "ecs", "elb", "vpc", "autoscaling"]
 _session_pool = {}
 
 
-def get_session(profile_name: Optional[str] = None):
+def get_session(profile_name: Optional[str] = None) -> boto3.Session:
     """Get AWS session with connection pooling."""
     cache_key = profile_name or "default"
 
@@ -68,7 +65,9 @@ def get_session(profile_name: Optional[str] = None):
     return _session_pool[cache_key]
 
 
-def get_client_with_config(session, service_name, region_name):
+def get_client_with_config(
+    session: boto3.Session, service_name: str, region_name: str
+) -> Any:
     """Get AWS client with optimized configuration."""
     config = botocore.config.Config(
         max_pool_connections=50,  # Increase connection pool size
@@ -79,7 +78,7 @@ def get_client_with_config(session, service_name, region_name):
     return session.client(service_name, region_name=region_name, config=config)
 
 
-def display_banner():
+def display_banner() -> str:
     """Display fancy ASCII banner with AWS profile information."""
     # Create fancy ASCII banner
     try:
@@ -91,7 +90,7 @@ def display_banner():
         output += "[bold cyan]║                   AWS SERVICE SCANNER                    ║[/bold cyan]\n"
         output += "[bold cyan]╚═══════════════════════════════════════════════════════════╝[/bold cyan]"
 
-    output += f"\n[dim]Modular Version with Advanced Optimizations[/dim]\n"
+    output += "\n[dim]Modular Version with Advanced Optimizations[/dim]\n"
 
     # Display AWS Profile information
     aws_profile = os.environ.get("AWS_PROFILE", "default")
@@ -147,7 +146,7 @@ def main(
         "--cache/--no-cache",
         help="Enable/disable caching of scan results (TTL: 10 minutes)",
     ),
-):
+) -> None:
     """
     AWS Multi-Service Scanner
 
@@ -255,10 +254,14 @@ def main(
         # Track region progress bars
         region_tasks = {}
 
-        def create_progress_callback(region_name):
+        def create_progress_callback(
+            region_name: str,
+        ) -> Callable[[int, int, str, str], None]:
             """Create a progress callback function for a specific region"""
 
-            def update_progress(completed, total, service, region):
+            def update_progress(
+                completed: int, total: int, service: str, region: str
+            ) -> None:
                 if region_name not in region_tasks:
                     region_tasks[region_name] = progress.add_task(
                         f"  {region_name}", total=total
@@ -357,7 +360,7 @@ def main(
         if len(services) == 1:
             parts.append(services[0])
         filename = "-".join(parts) + ".json"
-        output_file = Path(f"/tmp/{filename}")
+        output_file = Path(f"/tmp/aws_resource_scanner/{filename}")
 
     # Compare with existing results if requested
     if compare:
