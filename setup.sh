@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # AWS Resource Scanner - Automated Setup Script
 # ==============================================
@@ -55,28 +55,6 @@
 # 6. Configure AWS credentials
 #
 # For help: Check project README.md or open an issue
-#
-# Author: AWS Resource Scanner Team
-# Version: 1.1.0
-# Last Updated: September 2025
-#Resource Scanner - Setup Script
-# ===================================
-#
-# This script sets up the AWS Resource Scanner tool from scratch for users
-# who have no prior experience with the tool or its dependencies.
-#
-# Prerequisites:
-# - macOS or Linux system
-# - Internet connection for downloading dependencies
-# - Git (for cloning the repository if needed)
-#
-# Usage:
-#   ./setup.sh
-#
-# Author: ishuar
-# Version: 1.0.0
-# Last Updated: September 2025
-#
 
 set -e  # Exit on any error
 
