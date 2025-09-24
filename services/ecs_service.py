@@ -7,10 +7,12 @@ Handles scanning of ECS resources including clusters, services, task definitions
 
 from typing import Any, Dict, List, Optional
 
-import botocore
+from botocore.exceptions import BotoCoreError, ClientError
 from rich.console import Console
 
 console = Console()
+
+ECS_BATCH_SIZE = 10  # ECS describe_services supports up to 10 services per call
 
 
 def scan_ecs(
@@ -56,7 +58,7 @@ def scan_ecs(
                     cluster["tags"] = tags
                     filtered_clusters.append(cluster)
 
-            except botocore.exceptions.ClientError as e:
+            except ClientError as e:
                 console.print(
                     f"[yellow]Could not get tags for cluster {cluster_arn}: {e}[/yellow]"
                 )
@@ -75,11 +77,8 @@ def scan_ecs(
                     service_arns.extend(page.get("serviceArns", []))
 
                 # Process services in batches for efficiency
-                batch_size = (
-                    10  # ECS describe_services supports up to 10 services per call
-                )
-                for i in range(0, len(service_arns), batch_size):
-                    batch_arns = service_arns[i : i + batch_size]
+                for i in range(0, len(service_arns), ECS_BATCH_SIZE):
+                    batch_arns = service_arns[i : i + ECS_BATCH_SIZE]
 
                     try:
                         service_details = ecs_client.describe_services(
@@ -107,17 +106,17 @@ def scan_ecs(
                                     service["clusterName"] = cluster_name
                                     filtered_services.append(service)
 
-                            except botocore.exceptions.ClientError as e:
+                            except ClientError as e:
                                 console.print(
                                     f"[yellow]Could not get tags for service {service_arn}: {e}[/yellow]"
                                 )
 
-                    except botocore.exceptions.ClientError as e:
+                    except ClientError as e:
                         console.print(
                             f"[yellow]Could not describe services in cluster {cluster_name}: {e}[/yellow]"
                         )
 
-            except botocore.exceptions.ClientError as e:
+            except ClientError as e:
                 console.print(
                     f"[yellow]Could not list services in cluster {cluster_name}: {e}[/yellow]"
                 )
@@ -131,24 +130,19 @@ def scan_ecs(
             for page in page_iterator:
                 task_def_arns = page.get("taskDefinitionArns", [])
 
-                # Process task definitions in batches
-                batch_size = 10
-                for i in range(0, len(task_def_arns), batch_size):
-                    batch_arns = task_def_arns[i : i + batch_size]
-
+                # Process each task definition individually (describe_task_definition only accepts one at a time)
+                for task_def_arn in task_def_arns:
                     try:
                         task_def_details = ecs_client.describe_task_definition(
-                            taskDefinition=batch_arns[
-                                0
-                            ]  # Process one at a time for describe_task_definition
+                            taskDefinition=task_def_arn
                         )
 
                         task_def = task_def_details.get("taskDefinition")
                         if task_def:
-                            task_def_arn = task_def["taskDefinitionArn"]
+                            full_task_def_arn = task_def["taskDefinitionArn"]
                             try:
                                 tags_response = ecs_client.list_tags_for_resource(
-                                    resourceArn=task_def_arn
+                                    resourceArn=full_task_def_arn
                                 )
                                 tags = tags_response.get("tags", [])
 
@@ -163,17 +157,17 @@ def scan_ecs(
                                     task_def["tags"] = tags
                                     task_definitions.append(task_def)
 
-                            except botocore.exceptions.ClientError as e:
+                            except ClientError as e:
                                 console.print(
-                                    f"[yellow]Could not get tags for task definition {task_def_arn}: {e}[/yellow]"
+                                    f"[yellow]Could not get tags for task definition {full_task_def_arn}: {e}[/yellow]"
                                 )
 
-                    except botocore.exceptions.ClientError as e:
+                    except ClientError as e:
                         console.print(
-                            f"[yellow]Could not describe task definition: {e}[/yellow]"
+                            f"[yellow]Could not describe task definition {task_def_arn}: {e}[/yellow]"
                         )
 
-        except Exception as e:
+        except (ClientError, BotoCoreError) as e:
             console.print(f"[yellow]Could not list task definitions: {e}[/yellow]")
 
         # Capacity Providers (if any clusters exist)
@@ -185,7 +179,7 @@ def scan_ecs(
                 response = ecs_client.describe_capacity_providers()
                 capacity_providers = response.get("capacityProviders", [])
 
-            except Exception as e:
+            except (ClientError, BotoCoreError) as e:
                 console.print(
                     f"[yellow]Could not list capacity providers: {e}[/yellow]"
                 )
@@ -195,7 +189,7 @@ def scan_ecs(
         result["task_definitions"] = task_definitions
         result["capacity_providers"] = capacity_providers
 
-    except botocore.exceptions.BotoCoreError as e:
+    except BotoCoreError as e:
         console.print(f"[red]ECS scan failed: {e}[/red]")
     return result
 
