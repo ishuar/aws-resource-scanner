@@ -264,7 +264,7 @@ def process_vpc_output(
         )
 
     # VPC Peering Connections
-    for peering in service_data.get("peering_connections", []):
+    for peering in service_data.get("vpc_peering_connections", []):
         peering_id = peering.get("VpcPeeringConnectionId", "N/A")
 
         flattened_resources.append(
@@ -279,7 +279,7 @@ def process_vpc_output(
         )
 
     # VPC Endpoints
-    for endpoint in service_data.get("endpoints", []):
+    for endpoint in service_data.get("vpc_endpoints", []):
         endpoint_id = endpoint.get("VpcEndpointId", "N/A")
         service_name = endpoint.get("ServiceName", "N/A")
 
