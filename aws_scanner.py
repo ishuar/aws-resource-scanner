@@ -11,6 +11,7 @@ This version uses modular service scanners for better code organization.
 import os
 import signal
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -48,23 +49,31 @@ console = Console()
 # Supported services
 SUPPORTED_SERVICES = ["ec2", "s3", "ecs", "elb", "vpc", "autoscaling"]
 
-# Session pool for connection reuse
-_session_pool = {}
+# Thread-safe session pool for connection reuse
+_session_pool: Dict[str, boto3.Session] = {}
+_session_pool_lock = threading.Lock()
 
 
 def get_session(profile_name: Optional[str] = None) -> boto3.Session:
-    """Get AWS session with connection pooling."""
+    """Get AWS session with thread-safe connection pooling."""
     cache_key = profile_name or "default"
 
-    if cache_key not in _session_pool:
-        try:
-            session = boto3.Session(profile_name=profile_name)
-            _session_pool[cache_key] = session
-        except botocore.exceptions.ProfileNotFound as e:
-            console.print(
-                f"[red]Error: AWS profile '{profile_name}' not found.\n'{e}'[/red]"
-            )
-            raise typer.Exit(1)
+    # First check if session exists (avoid lock if not needed)
+    if cache_key in _session_pool:
+        return _session_pool[cache_key]
+
+    # Use lock for thread-safe session creation
+    with _session_pool_lock:
+        # Double-check pattern: verify session wasn't created while waiting for lock
+        if cache_key not in _session_pool:
+            try:
+                session = boto3.Session(profile_name=profile_name)
+                _session_pool[cache_key] = session
+            except Exception as e:  # More generic exception handling
+                console.print(
+                    f"[red]Error: AWS profile '{profile_name}' not found.\n'{e}'[/red]"
+                )
+                raise typer.Exit(1)
 
     return _session_pool[cache_key]
 
