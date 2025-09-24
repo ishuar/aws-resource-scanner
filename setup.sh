@@ -242,7 +242,7 @@ install_python() {
             else
                 # Check Python version
                 local python_version=$(python3 --version 2>&1 | grep -oE '[0-9]+\.[0-9]+' | head -1)
-                local major_minor="${python_version%.*}.${python_version#*.}"
+                local major_minor="${python_version%.*}"
 
                 if python3 -c "import sys; exit(0 if sys.version_info >= (3, 10) else 1)" 2>/dev/null; then
                     print_success "Python 3 already installed (version: $(python3 --version | cut -d' ' -f2))"
