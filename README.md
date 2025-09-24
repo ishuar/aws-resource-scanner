@@ -71,7 +71,7 @@ The easiest way to get started is using our automated setup script:
 
 ```bash
 # Clone the repository
-git clone https://github.com/ishuar/aws-service-scanner.git
+git clone https://github.com/ishuar/aws-resource-scanner.git
 cd aws-resource-scanner
 
 # Run the automated setup script
