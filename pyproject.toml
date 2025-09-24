@@ -107,7 +107,10 @@ files = [
           'cli.py',
           'aws_scanner.py'
 ]
-
+exclude = [
+          '.*cache/**',
+          '.venv/**'
+]
 [tool.pytest.ini_options]
 testpaths = ["tests", "."]
 python_files = ["test_*.py", "*_test.py"]

@@ -6,12 +6,76 @@ Handles scanning of Auto Scaling resources including auto scaling groups,
 launch configurations, and launch templates.
 """
 
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 
-import botocore
-from rich.console import Console
+from botocore.exceptions import BotoCoreError, ClientError
+from rich.console import Console  # pyright: ignore[reportMissingImports]
 
 console = Console()
+
+# AutoScaling operations can be parallelized for better performance
+AUTOSCALING_MAX_WORKERS = 3  # Parallel workers for different resource types
+
+
+def _scan_asg_parallel(
+    autoscaling_client: Any, tag_key: Optional[str], tag_value: Optional[str]
+) -> List[Dict[str, Any]]:
+    """Scan Auto Scaling Groups in parallel."""
+    asgs = []
+    try:
+        paginator = autoscaling_client.get_paginator("describe_auto_scaling_groups")
+        for page in paginator.paginate():
+            for asg in page["AutoScalingGroups"]:
+                if (
+                    not tag_key
+                    or not tag_value
+                    or any(
+                        t.get("Key") == tag_key and t.get("Value") == tag_value
+                        for t in asg.get("Tags", [])
+                    )
+                ):
+                    asgs.append(asg)
+    except (ClientError, BotoCoreError):
+        pass
+    return asgs
+
+
+def _scan_launch_configurations_parallel(
+    autoscaling_client: Any, tag_key: Optional[str], tag_value: Optional[str]
+) -> List[Dict[str, Any]]:
+    """Scan Launch Configurations in parallel."""
+    launch_configs = []
+    try:
+        paginator = autoscaling_client.get_paginator("describe_launch_configurations")
+        for page in paginator.paginate():
+            launch_configs.extend(page["LaunchConfigurations"])
+    except (ClientError, BotoCoreError):
+        pass
+    return launch_configs
+
+
+def _scan_launch_templates_parallel(
+    ec2_client: Any, tag_key: Optional[str], tag_value: Optional[str]
+) -> List[Dict[str, Any]]:
+    """Scan Launch Templates in parallel."""
+    launch_templates = []
+    try:
+        paginator = ec2_client.get_paginator("describe_launch_templates")
+        for page in paginator.paginate():
+            for template in page["LaunchTemplates"]:
+                if (
+                    not tag_key
+                    or not tag_value
+                    or any(
+                        t.get("Key") == tag_key and t.get("Value") == tag_value
+                        for t in template.get("Tags", [])
+                    )
+                ):
+                    launch_templates.append(template)
+    except (ClientError, BotoCoreError):
+        pass
+    return launch_templates
 
 
 def scan_autoscaling(
@@ -20,81 +84,78 @@ def scan_autoscaling(
     tag_key: Optional[str] = None,
     tag_value: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Scan Auto Scaling resources in the specified region."""
+    """Scan Auto Scaling resources in the specified region using parallel processing."""
     autoscaling_client = session.client("autoscaling", region_name=region)
+    ec2_client = session.client("ec2", region_name=region)
     result = {}
+
     try:
-        # Auto Scaling Groups
-        asg_response = autoscaling_client.describe_auto_scaling_groups()
-        asgs = asg_response.get("AutoScalingGroups", [])
+        # Use ThreadPoolExecutor to parallelize AutoScaling resource scanning
+        with ThreadPoolExecutor(max_workers=AUTOSCALING_MAX_WORKERS) as executor:
+            # Submit tasks for parallel execution
+            asgs_future = executor.submit(
+                _scan_asg_parallel, autoscaling_client, tag_key, tag_value
+            )
+            launch_configs_future = executor.submit(
+                _scan_launch_configurations_parallel,
+                autoscaling_client,
+                tag_key,
+                tag_value,
+            )
+            launch_templates_future = executor.submit(
+                _scan_launch_templates_parallel, ec2_client, tag_key, tag_value
+            )
 
-        filtered_asgs = []
-        for asg in asgs:
-            if tag_key and tag_value:
-                # Check if ASG has the required tag
-                if any(
-                    t["Key"] == tag_key and t["Value"] == tag_value
-                    for t in asg.get("Tags", [])
-                ):
-                    filtered_asgs.append(asg)
-            else:
-                filtered_asgs.append(asg)
+            # Collect Auto Scaling Groups results
+            try:
+                result["auto_scaling_groups"] = asgs_future.result()
+            except (ClientError, BotoCoreError) as e:
+                console.print(
+                    f"[yellow]Warning: Failed to scan Auto Scaling Groups in {region}: {str(e)}[/yellow]"
+                )
+                result["auto_scaling_groups"] = []
 
-        result["auto_scaling_groups"] = filtered_asgs
-
-        # Launch Configurations
-        lc_response = autoscaling_client.describe_launch_configurations()
-        launch_configs = lc_response.get("LaunchConfigurations", [])
-
-        # Note: Launch configurations don't support tags, so we filter by ASG usage
-        filtered_launch_configs = []
-        if not tag_key and not tag_value:
-            # Include all if no filtering
-            filtered_launch_configs = launch_configs
-        else:
-            # Only include launch configs used by filtered ASGs
-            used_lc_names = {
-                asg.get("LaunchConfigurationName")
-                for asg in filtered_asgs
-                if asg.get("LaunchConfigurationName")
-            }
-            filtered_launch_configs = [
-                lc
-                for lc in launch_configs
-                if lc.get("LaunchConfigurationName") in used_lc_names
-            ]
-
-        result["launch_configurations"] = filtered_launch_configs
-
-        # Launch Templates (newer alternative to launch configurations)
-        try:
-            ec2_client = session.client("ec2", region_name=region)
-            lt_response = ec2_client.describe_launch_templates()
-            launch_templates = lt_response.get("LaunchTemplates", [])
-
-            def filter_tags_ec2(
-                resources: List[Dict[str, Any]],
-            ) -> List[Dict[str, Any]]:
+            # Collect Launch Configurations results
+            try:
+                all_launch_configs = launch_configs_future.result()
+                # Filter launch configs by ASG usage if tag filtering is applied
                 if tag_key and tag_value:
-                    return [
-                        r
-                        for r in resources
-                        if any(
-                            t["Key"] == tag_key and t["Value"] == tag_value
-                            for t in r.get("Tags", [])
-                        )
+                    used_lc_names = {
+                        asg.get("LaunchConfigurationName")
+                        for asg in result["auto_scaling_groups"]
+                        if asg.get("LaunchConfigurationName")
+                    }
+                    filtered_launch_configs = [
+                        lc
+                        for lc in all_launch_configs
+                        if lc.get("LaunchConfigurationName") in used_lc_names
                     ]
-                return resources
+                    result["launch_configurations"] = filtered_launch_configs
+                else:
+                    result["launch_configurations"] = all_launch_configs
+            except (ClientError, BotoCoreError) as e:
+                console.print(
+                    f"[yellow]Warning: Failed to scan Launch Configurations in {region}: {str(e)}[/yellow]"
+                )
+                result["launch_configurations"] = []
 
-            filtered_launch_templates = filter_tags_ec2(launch_templates)
-            result["launch_templates"] = filtered_launch_templates
+            # Collect Launch Templates results
+            try:
+                result["launch_templates"] = launch_templates_future.result()
+            except (ClientError, BotoCoreError) as e:
+                console.print(
+                    f"[yellow]Warning: Failed to scan Launch Templates in {region}: {str(e)}[/yellow]"
+                )
+                result["launch_templates"] = []
 
-        except botocore.exceptions.ClientError as e:
-            console.print(f"[yellow]Could not get launch templates: {e}[/yellow]")
-            result["launch_templates"] = []
-
-    except botocore.exceptions.BotoCoreError as e:
+    except BotoCoreError as e:
         console.print(f"[red]Auto Scaling scan failed: {e}[/red]")
+        result = {
+            "auto_scaling_groups": [],
+            "launch_configurations": [],
+            "launch_templates": [],
+        }
+
     return result
 
 

@@ -6,12 +6,123 @@ Handles scanning of VPC resources including VPCs, subnets, NAT gateways, interne
 route tables, DHCP options, VPC peering connections, and VPC endpoints.
 """
 
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 
-import botocore  # pyright: ignore[reportMissingImports]
+from botocore.exceptions import BotoCoreError, ClientError
 from rich.console import Console  # pyright: ignore[reportMissingImports]
 
 console = Console()
+
+# VPC operations can be parallelized for better performance
+VPC_MAX_WORKERS = 4  # Parallel workers for different resource types
+
+
+def _scan_vpcs_parallel(
+    ec2_client: Any, filters: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Scan VPCs in parallel."""
+    vpcs = []
+    try:
+        response = (
+            ec2_client.describe_vpcs(Filters=filters)
+            if filters
+            else ec2_client.describe_vpcs()
+        )
+        vpcs.extend(response["Vpcs"])
+    except (ClientError, BotoCoreError):
+        pass
+    return vpcs
+
+
+def _scan_subnets_parallel(
+    ec2_client: Any, filters: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Scan subnets in parallel."""
+    subnets = []
+    try:
+        response = (
+            ec2_client.describe_subnets(Filters=filters)
+            if filters
+            else ec2_client.describe_subnets()
+        )
+        subnets.extend(response["Subnets"])
+    except (ClientError, BotoCoreError):
+        pass
+    return subnets
+
+
+def _scan_nat_gateways_parallel(
+    ec2_client: Any, filters: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Scan NAT gateways in parallel."""
+    nat_gateways = []
+    try:
+        response = (
+            ec2_client.describe_nat_gateways(Filters=filters)
+            if filters
+            else ec2_client.describe_nat_gateways()
+        )
+        nat_gateways.extend(response["NatGateways"])
+    except (ClientError, BotoCoreError):
+        pass
+    return nat_gateways
+
+
+def _scan_internet_gateways_parallel(
+    ec2_client: Any, filters: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Scan internet gateways in parallel."""
+    igws = []
+    try:
+        response = (
+            ec2_client.describe_internet_gateways(Filters=filters)
+            if filters
+            else ec2_client.describe_internet_gateways()
+        )
+        igws.extend(response["InternetGateways"])
+    except (ClientError, BotoCoreError):
+        pass
+    return igws
+
+
+def _scan_route_tables_parallel(
+    ec2_client: Any, filters: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Scan route tables in parallel."""
+    route_tables = []
+    try:
+        response = (
+            ec2_client.describe_route_tables(Filters=filters)
+            if filters
+            else ec2_client.describe_route_tables()
+        )
+        route_tables.extend(response["RouteTables"])
+    except (ClientError, BotoCoreError):
+        pass
+    return route_tables
+
+
+def _scan_dhcp_options_parallel(
+    ec2_client: Any, tag_key: Optional[str], tag_value: Optional[str]
+) -> List[Dict[str, Any]]:
+    """Scan DHCP options in parallel with client-side filtering."""
+    dhcp_options = []
+    try:
+        response = ec2_client.describe_dhcp_options()
+        for dhcp_option in response["DhcpOptions"]:
+            if (
+                not tag_key
+                or not tag_value
+                or any(
+                    t.get("Key") == tag_key and t.get("Value") == tag_value
+                    for t in dhcp_option.get("Tags", [])
+                )
+            ):
+                dhcp_options.append(dhcp_option)
+    except (ClientError, BotoCoreError):
+        pass
+    return dhcp_options
 
 
 def scan_vpc(
@@ -20,7 +131,7 @@ def scan_vpc(
     tag_key: Optional[str] = None,
     tag_value: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Scan VPC resources in the specified region with optimized API filtering and pagination."""
+    """Scan VPC resources in the specified region using parallel processing."""
     ec2_client = session.client("ec2", region_name=region)
     result = {}
 
@@ -30,140 +141,130 @@ def scan_vpc(
         filters.append({"Name": f"tag:{tag_key}", "Values": [tag_value]})
 
     try:
-        # VPCs with API-level filtering and pagination
-        vpcs = []
-        paginator = ec2_client.get_paginator("describe_vpcs")
-        page_iterator = (
-            paginator.paginate(Filters=filters) if filters else paginator.paginate()
-        )
+        # Use ThreadPoolExecutor to parallelize VPC resource scanning
+        with ThreadPoolExecutor(max_workers=VPC_MAX_WORKERS) as executor:
+            # Submit core resource tasks that support API-level filtering
+            vpcs_future = executor.submit(_scan_vpcs_parallel, ec2_client, filters)
+            subnets_future = executor.submit(
+                _scan_subnets_parallel, ec2_client, filters
+            )
+            igws_future = executor.submit(
+                _scan_internet_gateways_parallel, ec2_client, filters
+            )
+            route_tables_future = executor.submit(
+                _scan_route_tables_parallel, ec2_client, filters
+            )
 
-        for page in page_iterator:
-            vpcs.extend(page["Vpcs"])
+            # Submit tasks that need client-side filtering
+            nat_gateways_future = executor.submit(
+                _scan_nat_gateways_parallel, ec2_client, []
+            )
+            dhcp_options_future = executor.submit(
+                _scan_dhcp_options_parallel, ec2_client, tag_key, tag_value
+            )
 
-        # Subnets with API-level filtering and pagination
-        subnets = []
-        paginator = ec2_client.get_paginator("describe_subnets")
-        page_iterator = (
-            paginator.paginate(Filters=filters) if filters else paginator.paginate()
-        )
+            # Collect results with error handling
+            try:
+                result["vpcs"] = vpcs_future.result()
+            except (ClientError, BotoCoreError) as e:
+                console.print(
+                    f"[yellow]Warning: Failed to scan VPCs in {region}: {str(e)}[/yellow]"
+                )
+                result["vpcs"] = []
 
-        for page in page_iterator:
-            subnets.extend(page["Subnets"])
+            try:
+                result["subnets"] = subnets_future.result()
+            except (ClientError, BotoCoreError) as e:
+                console.print(
+                    f"[yellow]Warning: Failed to scan subnets in {region}: {str(e)}[/yellow]"
+                )
+                result["subnets"] = []
 
-        # NAT Gateways with pagination (tag filtering done client-side as API doesn't support it)
-        nat_gateways = []
-        paginator = ec2_client.get_paginator("describe_nat_gateways")
-        page_iterator = paginator.paginate()
+            try:
+                result["internet_gateways"] = igws_future.result()
+            except (ClientError, BotoCoreError) as e:
+                console.print(
+                    f"[yellow]Warning: Failed to scan internet gateways in {region}: {str(e)}[/yellow]"
+                )
+                result["internet_gateways"] = []
 
-        for page in page_iterator:
-            for nat_gw in page["NatGateways"]:
-                # NAT Gateways use a different tag structure
-                if not filters or any(
-                    t.get("Key") == tag_key and t.get("Value") == tag_value
-                    for t in nat_gw.get("Tags", [])
-                ):
-                    nat_gateways.append(nat_gw)
+            try:
+                result["route_tables"] = route_tables_future.result()
+            except (ClientError, BotoCoreError) as e:
+                console.print(
+                    f"[yellow]Warning: Failed to scan route tables in {region}: {str(e)}[/yellow]"
+                )
+                result["route_tables"] = []
 
-        # Internet Gateways with API-level filtering and pagination
-        internet_gateways = []
-        paginator = ec2_client.get_paginator("describe_internet_gateways")
-        page_iterator = (
-            paginator.paginate(Filters=filters) if filters else paginator.paginate()
-        )
+            try:
+                # Filter NAT gateways client-side for tags if needed
+                nat_gateways = nat_gateways_future.result()
+                if tag_key and tag_value:
+                    filtered_nat_gateways = []
+                    for nat_gw in nat_gateways:
+                        if any(
+                            t.get("Key") == tag_key and t.get("Value") == tag_value
+                            for t in nat_gw.get("Tags", [])
+                        ):
+                            filtered_nat_gateways.append(nat_gw)
+                    result["nat_gateways"] = filtered_nat_gateways
+                else:
+                    result["nat_gateways"] = nat_gateways
+            except (ClientError, BotoCoreError) as e:
+                console.print(
+                    f"[yellow]Warning: Failed to scan NAT gateways in {region}: {str(e)}[/yellow]"
+                )
+                result["nat_gateways"] = []
 
-        for page in page_iterator:
-            internet_gateways.extend(page["InternetGateways"])
+            try:
+                result["dhcp_options"] = dhcp_options_future.result()
+            except (ClientError, BotoCoreError) as e:
+                console.print(
+                    f"[yellow]Warning: Failed to scan DHCP options in {region}: {str(e)}[/yellow]"
+                )
+                result["dhcp_options"] = []
 
-        # Route Tables with API-level filtering and pagination
-        route_tables = []
-        paginator = ec2_client.get_paginator("describe_route_tables")
-        page_iterator = (
-            paginator.paginate(Filters=filters) if filters else paginator.paginate()
-        )
+        # Handle remaining resources sequentially (lower priority/frequency)
+        result["vpc_peering_connections"] = []
+        result["vpc_endpoints"] = []
 
-        for page in page_iterator:
-            route_tables.extend(page["RouteTables"])
-
-        # DHCP Options with pagination (no API-level tag filtering)
-        dhcp_options = []
-        try:
-            paginator = ec2_client.get_paginator("describe_dhcp_options")
-            page_iterator = paginator.paginate()
-
-            for page in page_iterator:
-                for dhcp_option in page["DhcpOptions"]:
-                    if not filters or any(
-                        t.get("Key") == tag_key and t.get("Value") == tag_value
-                        for t in dhcp_option.get("Tags", [])
-                    ):
-                        dhcp_options.append(dhcp_option)
-        except Exception:
-            # Fallback to non-paginated call
-            dhcp_options_response = ec2_client.describe_dhcp_options()
-            for dhcp_option in dhcp_options_response["DhcpOptions"]:
-                if not filters or any(
-                    t.get("Key") == tag_key and t.get("Value") == tag_value
-                    for t in dhcp_option.get("Tags", [])
-                ):
-                    dhcp_options.append(dhcp_option)
-
-        # VPC Peering Connections with pagination (client-side filtering)
-        vpc_peering_connections = []
+        # VPC Peering Connections (client-side filtering)
         try:
             paginator = ec2_client.get_paginator("describe_vpc_peering_connections")
-            page_iterator = paginator.paginate()
-
-            for page in page_iterator:
+            for page in paginator.paginate():
                 for peering_conn in page["VpcPeeringConnections"]:
-                    if not filters or any(
-                        t.get("Key") == tag_key and t.get("Value") == tag_value
-                        for t in peering_conn.get("Tags", [])
+                    if (
+                        not tag_key
+                        or not tag_value
+                        or any(
+                            t.get("Key") == tag_key and t.get("Value") == tag_value
+                            for t in peering_conn.get("Tags", [])
+                        )
                     ):
-                        vpc_peering_connections.append(peering_conn)
-        except Exception:
-            # Fallback to non-paginated call
-            peering_response = ec2_client.describe_vpc_peering_connections()
-            for peering_conn in peering_response["VpcPeeringConnections"]:
-                if not filters or any(
-                    t.get("Key") == tag_key and t.get("Value") == tag_value
-                    for t in peering_conn.get("Tags", [])
-                ):
-                    vpc_peering_connections.append(peering_conn)
+                        result["vpc_peering_connections"].append(peering_conn)
+        except (ClientError, BotoCoreError):
+            pass
 
-        # VPC Endpoints with pagination (client-side filtering)
-        vpc_endpoints = []
+        # VPC Endpoints (client-side filtering)
         try:
             paginator = ec2_client.get_paginator("describe_vpc_endpoints")
-            page_iterator = paginator.paginate()
-
-            for page in page_iterator:
+            for page in paginator.paginate():
                 for endpoint in page["VpcEndpoints"]:
-                    if not filters or any(
-                        t.get("Key") == tag_key and t.get("Value") == tag_value
-                        for t in endpoint.get("Tags", [])
+                    if (
+                        not tag_key
+                        or not tag_value
+                        or any(
+                            t.get("Key") == tag_key and t.get("Value") == tag_value
+                            for t in endpoint.get("Tags", [])
+                        )
                     ):
-                        vpc_endpoints.append(endpoint)
-        except Exception:
-            # Fallback to non-paginated call
-            endpoints_response = ec2_client.describe_vpc_endpoints()
-            for endpoint in endpoints_response["VpcEndpoints"]:
-                if not filters or any(
-                    t.get("Key") == tag_key and t.get("Value") == tag_value
-                    for t in endpoint.get("Tags", [])
-                ):
-                    vpc_endpoints.append(endpoint)
+                        result["vpc_endpoints"].append(endpoint)
+        except (ClientError, BotoCoreError):
+            pass
 
-        result["vpcs"] = vpcs
-        result["subnets"] = subnets
-        result["nat_gateways"] = nat_gateways
-        result["internet_gateways"] = internet_gateways
-        result["route_tables"] = route_tables
-        result["dhcp_options"] = dhcp_options
-        result["vpc_peering_connections"] = vpc_peering_connections
-        result["vpc_endpoints"] = vpc_endpoints
-
-    except botocore.exceptions.BotoCoreError as e:
+    except BotoCoreError as e:
         console.print(f"[red]VPC scan failed: {e}[/red]")
+
     return result
 
 

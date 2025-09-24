@@ -5,6 +5,7 @@ ECS Service Scanner
 Handles scanning of ECS resources including clusters, services, task definitions, and capacity providers.
 """
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
@@ -13,6 +14,52 @@ from rich.console import Console
 console = Console()
 
 ECS_BATCH_SIZE = 10  # ECS describe_services supports up to 10 services per call
+ECS_TASK_DEF_MAX_WORKERS = (
+    4  # Parallel workers for task definition processing (reduced to avoid throttling)
+)
+
+
+def _process_task_definition_parallel(
+    ecs_client: Any, task_def_arn: str, tag_key: Optional[str], tag_value: Optional[str]
+) -> Any:
+    """Process a single task definition in parallel - describe and get tags."""
+    try:
+        task_def_details = ecs_client.describe_task_definition(
+            taskDefinition=task_def_arn
+        )
+        task_def = task_def_details.get("taskDefinition")
+
+        if not task_def:
+            return None
+
+        full_task_def_arn = task_def["taskDefinitionArn"]
+        try:
+            tags_response = ecs_client.list_tags_for_resource(
+                resourceArn=full_task_def_arn
+            )
+            tags = tags_response.get("tags", [])
+        except ClientError as e:
+            console.print(
+                f"[yellow]Could not get tags for task definition {full_task_def_arn}: {e}[/yellow]"
+            )
+            tags = []
+
+        task_def["tags"] = tags
+
+        # Apply tag filtering if specified
+        if tag_key and tag_value:
+            if any(t["key"] == tag_key and t["value"] == tag_value for t in tags):
+                return task_def
+            else:
+                return None
+        else:
+            return task_def
+
+    except ClientError as e:
+        console.print(
+            f"[yellow]Could not describe task definition {task_def_arn}: {e}[/yellow]"
+        )
+        return None
 
 
 def scan_ecs(
@@ -121,50 +168,42 @@ def scan_ecs(
                     f"[yellow]Could not list services in cluster {cluster_name}: {e}[/yellow]"
                 )
 
-        # Task Definitions with pagination
+        # Task Definitions with pagination and parallel processing
         task_definitions = []
+        all_task_def_arns = []
+
         try:
             paginator = ecs_client.get_paginator("list_task_definitions")
             page_iterator = paginator.paginate()
 
+            # Collect all task definition ARNs first
             for page in page_iterator:
-                task_def_arns = page.get("taskDefinitionArns", [])
+                all_task_def_arns.extend(page.get("taskDefinitionArns", []))
 
-                # Process each task definition individually (describe_task_definition only accepts one at a time)
-                for task_def_arn in task_def_arns:
+            # Process task definitions in parallel for much better performance
+            with ThreadPoolExecutor(max_workers=ECS_TASK_DEF_MAX_WORKERS) as executor:
+                # Submit all task definition processing tasks
+                future_to_arn = {
+                    executor.submit(
+                        _process_task_definition_parallel,
+                        ecs_client,
+                        task_def_arn,
+                        tag_key,
+                        tag_value,
+                    ): task_def_arn
+                    for task_def_arn in all_task_def_arns
+                }
+
+                # Collect results as they complete
+                for future in as_completed(future_to_arn):
                     try:
-                        task_def_details = ecs_client.describe_task_definition(
-                            taskDefinition=task_def_arn
-                        )
-
-                        task_def = task_def_details.get("taskDefinition")
-                        if task_def:
-                            full_task_def_arn = task_def["taskDefinitionArn"]
-                            try:
-                                tags_response = ecs_client.list_tags_for_resource(
-                                    resourceArn=full_task_def_arn
-                                )
-                                tags = tags_response.get("tags", [])
-
-                                if tag_key and tag_value:
-                                    if any(
-                                        t["key"] == tag_key and t["value"] == tag_value
-                                        for t in tags
-                                    ):
-                                        task_def["tags"] = tags
-                                        task_definitions.append(task_def)
-                                else:
-                                    task_def["tags"] = tags
-                                    task_definitions.append(task_def)
-
-                            except ClientError as e:
-                                console.print(
-                                    f"[yellow]Could not get tags for task definition {full_task_def_arn}: {e}[/yellow]"
-                                )
-
-                    except ClientError as e:
+                        result_task_def = future.result()
+                        if result_task_def is not None:
+                            task_definitions.append(result_task_def)
+                    except (ClientError, BotoCoreError) as e:
+                        task_def_arn = future_to_arn[future]
                         console.print(
-                            f"[yellow]Could not describe task definition {task_def_arn}: {e}[/yellow]"
+                            f"[yellow]Error processing task definition {task_def_arn}: {e}[/yellow]"
                         )
 
         except (ClientError, BotoCoreError) as e:

@@ -5,12 +5,134 @@ EC2 Service Scanner
 Handles scanning of EC2 resources including instances, volumes, security groups, AMIs, and snapshots.
 """
 
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 
-import botocore
+from botocore.exceptions import BotoCoreError, ClientError
 from rich.console import Console
 
 console = Console()
+
+# EC2 operations can be parallelized for better performance
+EC2_MAX_WORKERS = 5  # Parallel workers for different resource types
+
+
+def _scan_ec2_instances(
+    ec2_client: Any, filters: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Scan EC2 instances in parallel."""
+    instances = []
+    paginator = ec2_client.get_paginator("describe_instances")
+    page_iterator = (
+        paginator.paginate(Filters=filters) if filters else paginator.paginate()
+    )
+
+    for page in page_iterator:
+        for reservation in page["Reservations"]:
+            instances.extend(reservation["Instances"])
+    return instances
+
+
+def _scan_ec2_volumes(
+    ec2_client: Any, filters: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Scan EC2 volumes in parallel."""
+    volumes = []
+    paginator = ec2_client.get_paginator("describe_volumes")
+    page_iterator = (
+        paginator.paginate(Filters=filters) if filters else paginator.paginate()
+    )
+
+    for page in page_iterator:
+        volumes.extend(page["Volumes"])
+    return volumes
+
+
+def _scan_ec2_security_groups(
+    ec2_client: Any, filters: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Scan EC2 security groups in parallel."""
+    security_groups = []
+    paginator = ec2_client.get_paginator("describe_security_groups")
+    page_iterator = (
+        paginator.paginate(Filters=filters) if filters else paginator.paginate()
+    )
+
+    for page in page_iterator:
+        security_groups.extend(page["SecurityGroups"])
+    return security_groups
+
+
+def _scan_ec2_amis(
+    ec2_client: Any, tag_key: Optional[str], tag_value: Optional[str]
+) -> List[Dict[str, Any]]:
+    """Scan EC2 AMIs in parallel."""
+    amis = []
+    try:
+        paginator = ec2_client.get_paginator("describe_images")
+        page_iterator = paginator.paginate(Owners=["self"])
+
+        for page in page_iterator:
+            for ami in page["Images"]:
+                if (
+                    not tag_key
+                    or not tag_value
+                    or any(
+                        t.get("Key") == tag_key and t.get("Value") == tag_value
+                        for t in ami.get("Tags", [])
+                    )
+                ):
+                    amis.append(ami)
+    except (ClientError, BotoCoreError):
+        # Fallback to non-paginated call if paginator fails
+        amis_response = ec2_client.describe_images(Owners=["self"])
+        for ami in amis_response["Images"]:
+            if (
+                not tag_key
+                or not tag_value
+                or any(
+                    t.get("Key") == tag_key and t.get("Value") == tag_value
+                    for t in ami.get("Tags", [])
+                )
+            ):
+                amis.append(ami)
+    return amis
+
+
+def _scan_ec2_snapshots(
+    ec2_client: Any, tag_key: Optional[str], tag_value: Optional[str]
+) -> List[Dict[str, Any]]:
+    """Scan EC2 snapshots in parallel."""
+    snapshots = []
+    try:
+        paginator = ec2_client.get_paginator("describe_snapshots")
+        page_iterator = paginator.paginate(OwnerIds=["self"])
+
+        for page in page_iterator:
+            for snapshot in page["Snapshots"]:
+                if (
+                    not tag_key
+                    or not tag_value
+                    or any(
+                        t.get("Key") == tag_key and t.get("Value") == tag_value
+                        for t in snapshot.get("Tags", [])
+                    )
+                ):
+                    snapshots.append(snapshot)
+    except (ClientError, BotoCoreError):
+        # Fallback to non-paginated call if paginator fails
+        snapshots_response = ec2_client.describe_snapshots(OwnerIds=["self"])
+        for snapshot in snapshots_response["Snapshots"]:
+            if (
+                not tag_key
+                or not tag_value
+                or any(
+                    t.get("Key") == tag_key and t.get("Value") == tag_value
+                    for t in snapshot.get("Tags", [])
+                )
+            ):
+                snapshots.append(snapshot)
+    return snapshots
 
 
 def scan_ec2(
@@ -19,103 +141,69 @@ def scan_ec2(
     tag_key: Optional[str] = None,
     tag_value: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Scan EC2 resources in the specified region with optimized API filtering and pagination."""
+    """Scan EC2 resources in a single region using parallel processing."""
     ec2_client = session.client("ec2", region_name=region)
     result = {}
 
-    # Build AWS API filters for tag filtering
+    # Prepare filters for resources that support tag filtering at the API level
     filters = []
     if tag_key and tag_value:
-        filters.append({"Name": f"tag:{tag_key}", "Values": [tag_value]})
+        filters = [{"Name": f"tag:{tag_key}", "Values": [tag_value]}]
 
-    try:
-        # Use paginated calls for better performance with large result sets
-
-        # EC2 Instances with API-level filtering
-        instances = []
-        paginator = ec2_client.get_paginator("describe_instances")
-        page_iterator = (
-            paginator.paginate(Filters=filters) if filters else paginator.paginate()
+    # Use ThreadPoolExecutor to parallelize resource scanning
+    with ThreadPoolExecutor(max_workers=EC2_MAX_WORKERS) as executor:
+        # Submit all tasks
+        instances_future = executor.submit(_scan_ec2_instances, ec2_client, filters)
+        volumes_future = executor.submit(_scan_ec2_volumes, ec2_client, filters)
+        security_groups_future = executor.submit(
+            _scan_ec2_security_groups, ec2_client, filters
+        )
+        amis_future = executor.submit(_scan_ec2_amis, ec2_client, tag_key, tag_value)
+        snapshots_future = executor.submit(
+            _scan_ec2_snapshots, ec2_client, tag_key, tag_value
         )
 
-        for page in page_iterator:
-            for reservation in page["Reservations"]:
-                instances.extend(reservation["Instances"])
-
-        # Volumes with API-level filtering
-        volumes = []
-        paginator = ec2_client.get_paginator("describe_volumes")
-        page_iterator = (
-            paginator.paginate(Filters=filters) if filters else paginator.paginate()
-        )
-
-        for page in page_iterator:
-            volumes.extend(page["Volumes"])
-
-        # Security Groups with API-level filtering
-        security_groups = []
-        paginator = ec2_client.get_paginator("describe_security_groups")
-        page_iterator = (
-            paginator.paginate(Filters=filters) if filters else paginator.paginate()
-        )
-
-        for page in page_iterator:
-            security_groups.extend(page["SecurityGroups"])
-
-        # AMIs (owned by self) - Note: tag filtering for AMIs may not work the same way
-        amis = []
+        # Collect results in the expected dictionary structure
         try:
-            paginator = ec2_client.get_paginator("describe_images")
-            page_iterator = paginator.paginate(Owners=["self"])
+            result["instances"] = instances_future.result()
+        except (ClientError, BotoCoreError) as e:
+            console.print(
+                f"[yellow]Warning: Failed to scan EC2 instances in {region}: {str(e)}[/yellow]"
+            )
+            result["instances"] = []
 
-            for page in page_iterator:
-                for ami in page["Images"]:
-                    if not filters or any(
-                        t.get("Key") == tag_key and t.get("Value") == tag_value
-                        for t in ami.get("Tags", [])
-                    ):
-                        amis.append(ami)
-        except Exception:
-            # Fallback to non-paginated call if paginator fails
-            amis_response = ec2_client.describe_images(Owners=["self"])
-            for ami in amis_response["Images"]:
-                if not filters or any(
-                    t.get("Key") == tag_key and t.get("Value") == tag_value
-                    for t in ami.get("Tags", [])
-                ):
-                    amis.append(ami)
-
-        # Snapshots (owned by self)
-        snapshots = []
         try:
-            paginator = ec2_client.get_paginator("describe_snapshots")
-            page_iterator = paginator.paginate(OwnerIds=["self"])
+            result["volumes"] = volumes_future.result()
+        except (ClientError, BotoCoreError) as e:
+            console.print(
+                f"[yellow]Warning: Failed to scan EC2 volumes in {region}: {str(e)}[/yellow]"
+            )
+            result["volumes"] = []
 
-            for page in page_iterator:
-                for snapshot in page["Snapshots"]:
-                    if not filters or any(
-                        t.get("Key") == tag_key and t.get("Value") == tag_value
-                        for t in snapshot.get("Tags", [])
-                    ):
-                        snapshots.append(snapshot)
-        except Exception:
-            # Fallback to non-paginated call if paginator fails
-            snapshots_response = ec2_client.describe_snapshots(OwnerIds=["self"])
-            for snapshot in snapshots_response["Snapshots"]:
-                if not filters or any(
-                    t.get("Key") == tag_key and t.get("Value") == tag_value
-                    for t in snapshot.get("Tags", [])
-                ):
-                    snapshots.append(snapshot)
+        try:
+            result["security_groups"] = security_groups_future.result()
+        except (ClientError, BotoCoreError) as e:
+            console.print(
+                f"[yellow]Warning: Failed to scan EC2 security groups in {region}: {str(e)}[/yellow]"
+            )
+            result["security_groups"] = []
 
-        result["instances"] = instances
-        result["volumes"] = volumes
-        result["security_groups"] = security_groups
-        result["amis"] = amis
-        result["snapshots"] = snapshots
+        try:
+            result["amis"] = amis_future.result()
+        except (ClientError, BotoCoreError) as e:
+            console.print(
+                f"[yellow]Warning: Failed to scan EC2 AMIs in {region}: {str(e)}[/yellow]"
+            )
+            result["amis"] = []
 
-    except botocore.exceptions.BotoCoreError as e:
-        console.print(f"[red]EC2 scan failed: {e}[/red]")
+        try:
+            result["snapshots"] = snapshots_future.result()
+        except (ClientError, BotoCoreError) as e:
+            console.print(
+                f"[yellow]Warning: Failed to scan EC2 snapshots in {region}: {str(e)}[/yellow]"
+            )
+            result["snapshots"] = []
+
     return result
 
 

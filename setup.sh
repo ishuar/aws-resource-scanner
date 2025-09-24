@@ -515,12 +515,12 @@ display_usage() {
     echo
     echo "  2. Run the tool:"
     echo "     poetry run python aws-scanner --help"
-    echo "     poetry run python aws-scanner --services ec2,s3 --regions us-east-1"
+    echo "     poetry run python aws-scanner --service s3 --regions us-east-1"
     echo
 
     print_message "CYAN" "📖 Common Usage Examples:"
     echo "  • Scan specific services and regions:"
-    echo "    poetry run python aws-scanner --services ec2,s3,vpc --regions us-east-1,eu-west-1"
+    echo "    poetry run python aws-scanner --service s3 --regions us-east-1,eu-west-1"
     echo
     echo "  • Filter by tags:"
     echo "    poetry run python aws-scanner --tag-key Environment --tag-value Production"

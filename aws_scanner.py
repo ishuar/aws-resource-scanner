@@ -9,25 +9,29 @@ supports multiple regions, and outputs results in JSON or table format.
 This version uses modular service scanners for better code organization.
 """
 import os
+import signal
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import boto3
 import botocore
 import botocore.config
 import pyfiglet
 import typer
-from botocore.exceptions import ClientError, NoCredentialsError
 from rich.console import Console
+from rich.panel import Panel
 from rich.progress import (
     BarColumn,
     Progress,
     SpinnerColumn,
     TaskProgressColumn,
     TextColumn,
+    TimeElapsedColumn,
 )
+from rich.table import Table
 
 # Import modular components
 from aws_scanner_lib.outputs import compare_with_existing, output_results
@@ -100,6 +104,125 @@ def display_banner() -> str:
     return output
 
 
+def perform_scan(
+    session: boto3.Session,
+    region_list: List[str],
+    services: List[str],
+    tag_key: Optional[str],
+    tag_value: Optional[str],
+    max_workers: int,
+    service_workers: int,
+    use_cache: bool,
+    progress: Optional[Progress] = None,
+) -> Dict[str, Dict[str, Any]]:
+    """Perform the AWS scanning operation with optional progress reporting."""
+    all_results = {}
+    main_task = None
+    region_tasks = {}
+
+    if progress:
+        # Main progress bar for overall region completion
+        main_task = progress.add_task(
+            f"🔍 Scanning {len(region_list)} regions", total=len(region_list)
+        )
+
+        def create_progress_callback(
+            region_name: str,
+        ) -> Callable[[int, int, str, str], None]:
+            """Create a progress callback function for a specific region"""
+
+            def update_progress(
+                completed: int, total: int, service: str, region: str
+            ) -> None:
+                if region_name not in region_tasks:
+                    region_tasks[region_name] = progress.add_task(
+                        f"  📍 {region_name}", total=total
+                    )
+                progress.update(
+                    region_tasks[region_name],
+                    completed=completed,
+                    description=f"  📍 {region_name} ({service})",
+                )
+
+            return update_progress
+
+    else:
+
+        def create_progress_callback(
+            region_name: str,
+        ) -> Callable[[int, int, str, str], None]:
+            return lambda *args: None
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit region scanning tasks with progress callbacks
+        future_to_region = {
+            executor.submit(
+                scan_region,
+                session,
+                region,
+                services,
+                tag_key,
+                tag_value,
+                service_workers,
+                use_cache,
+                create_progress_callback(region),
+            ): region
+            for region in region_list
+        }
+
+        # Collect results as they complete
+        total_scan_time = 0.0
+        for future in as_completed(future_to_region):
+            region = future_to_region[future]
+            try:
+                region_name, region_results, scan_duration = future.result(timeout=300)
+                total_scan_time += scan_duration
+                if region_results:
+                    all_results[region_name] = region_results
+                    if progress and main_task is not None:
+                        # Update the region task to show completion
+                        if region_name in region_tasks:
+                            progress.update(
+                                region_tasks[region_name],
+                                description=f"  ✅ {region_name}",
+                                completed=progress.tasks[
+                                    region_tasks[region_name]
+                                ].total,
+                            )
+                        console.print(
+                            f"[green]✅ Completed scanning {region_name}[/green]"
+                        )
+                else:
+                    if progress and main_task is not None:
+                        # Update the region task to show no resources
+                        if region_name in region_tasks:
+                            progress.update(
+                                region_tasks[region_name],
+                                description=f"  ⚪ {region_name} (no resources)",
+                                completed=progress.tasks[
+                                    region_tasks[region_name]
+                                ].total,
+                            )
+                        console.print(
+                            f"[dim yellow]⚪ No resources found in {region_name}[/dim yellow]"
+                        )
+            except Exception as e:
+                if progress and main_task is not None:
+                    # Update the region task to show error
+                    if region in region_tasks:
+                        progress.update(
+                            region_tasks[region],
+                            description=f"  ❌ {region}",
+                            completed=progress.tasks[region_tasks[region]].total,
+                        )
+                console.print(f"[red]❌ Failed to scan {region}: {e}[/red]")
+            finally:
+                if progress and main_task is not None:
+                    progress.advance(main_task)
+
+    return all_results
+
+
 @app.command()
 def main(
     regions: Optional[str] = typer.Option(
@@ -122,7 +245,7 @@ def main(
         help="Output file path. If not provided, a dynamic name will be generated.",
     ),
     output_format: str = typer.Option(
-        "json", "--format", "-f", help="Output format (json|table|md)"
+        "table", "--format", "-f", help="Output format (json|table|md)"
     ),
     compare: bool = typer.Option(
         False, "--compare", "-c", help="Compare with existing results"
@@ -146,6 +269,17 @@ def main(
         "--cache/--no-cache",
         help="Enable/disable caching of scan results (TTL: 10 minutes)",
     ),
+    refresh: bool = typer.Option(
+        False,
+        "--refresh/--no-refresh",
+        help="Enable continuous refresh mode to update results periodically",
+    ),
+    refresh_interval: int = typer.Option(
+        10,
+        "--refresh-interval",
+        "-i",
+        help="Refresh interval in seconds (default: 10, min: 5, max: 300)",
+    ),
 ) -> None:
     """
     AWS Multi-Service Scanner
@@ -156,14 +290,47 @@ def main(
     max_workers = max(1, min(max_workers, 20))  # Limit between 1-20
     service_workers = max(1, min(service_workers, 10))  # Limit between 1-10
 
+    # Validate refresh parameters
+    refresh_interval = max(5, min(refresh_interval, 300))  # Limit between 5-300 seconds
+
+    # Refresh mode validation
+    if refresh and dry_run:
+        console.print(
+            "[red]❌ Cannot use refresh mode with dry run. Please choose one.[/red]"
+        )
+        raise typer.Exit(1)
+
+    if refresh and compare:
+        console.print(
+            "[red]❌ Cannot use refresh mode with compare. Please choose one.[/red]"
+        )
+        raise typer.Exit(1)
+
+    # Disable cache when refresh mode is enabled to ensure fresh data
+    if refresh:
+        use_cache = False
+
     # Display banner
     display_banner()
 
-    console.print(f"Scanning services: {', '.join(services)}")
-    console.print(
-        f"Max workers: {max_workers} regions, {service_workers} services per region"
+    # Create an elegant configuration panel
+    config_table = Table(title="Configuration", show_header=False, box=None)
+    config_table.add_column("Parameter", style="bold cyan", width=20)
+    config_table.add_column("Value", style="bold yellow")
+
+    config_table.add_row("Services", f"{', '.join(services)}")
+    config_table.add_row(
+        "Workers", f"{max_workers} regions, {service_workers} services/region"
     )
-    console.print(f"Caching: {'Enabled' if use_cache else 'Disabled'}")
+    config_table.add_row("Caching", "Enabled" if use_cache else "Disabled")
+    config_table.add_row("Refresh Mode", "Enabled" if refresh else "Disabled")
+    if refresh:
+        config_table.add_row("Refresh Interval", f"{refresh_interval}s")
+    if tag_key and tag_value:
+        config_table.add_row("Tag Filter", f"{tag_key}={tag_value}")
+    config_table.add_row("Output Format", output_format.upper())
+
+    console.print(Panel(config_table, border_style="bright_blue", padding=(1, 2)))
 
     # List of all AWS Europe and US regions
     default_europe_us_regions = [
@@ -180,14 +347,18 @@ def main(
     if not regions:
         region_list = default_europe_us_regions
         console.print(
-            "[yellow]No regions specified. Scanning all Europe and US regions.[/yellow]"
+            "[dim yellow]ℹ️ No regions specified. Scanning all Europe and US regions.[/dim yellow]"
         )
     else:
         region_list = [r.strip() for r in regions.split(",") if r.strip()]
-    console.print(f"Scanning regions: {', '.join(region_list)}")
 
-    if tag_key and tag_value:
-        console.print(f"Filtering by tag: {tag_key}={tag_value}")
+    # Create regions panel
+    regions_table = Table(title="Target Regions", show_header=False, box=None)
+    regions_table.add_column("Region", style="bold green")
+    for i, region in enumerate(region_list, 1):
+        regions_table.add_row(region)
+
+    console.print(Panel(regions_table, border_style="bright_green", padding=(1, 2)))
 
     session = get_session(profile)
 
@@ -230,148 +401,146 @@ def main(
             console.print("  • [bold]Output file:[/bold] Auto-generated")
 
         console.print(
-            "\n[bold green]✓ Dry run completed. Use without --dry-run to execute the actual scan.[/bold green]"
+            "\n[bold green]✅ Dry run completed. Use without --dry-run to execute the actual scan.[/bold green]"
         )
         return
 
-    all_results = {}
+    # Initialize refresh mode variables
+    scan_count = 0
+    total_scan_time = 0.0
 
-    # Use parallel region scanning with nested progress bars
-    console.print("\n[bold blue]Starting parallel region scanning...[/bold blue]")
+    # Set up signal handler for graceful exit in refresh mode
+    stop_refresh = False
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TaskProgressColumn(),
-        console=console,
-    ) as progress:
-        # Main progress bar for overall region completion
-        main_task = progress.add_task(
-            f"Scanning {len(region_list)} regions", total=len(region_list)
-        )
+    def signal_handler(signum: int, frame: Any) -> None:
+        nonlocal stop_refresh
+        stop_refresh = True
+        console.print("\n\n[yellow]Graceful shutdown requested...[/yellow]")
 
-        # Track region progress bars
-        region_tasks = {}
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
-        def create_progress_callback(
-            region_name: str,
-        ) -> Callable[[int, int, str, str], None]:
-            """Create a progress callback function for a specific region"""
+    # Main scanning loop (single scan or refresh mode)
+    while True:
+        scan_count += 1
+        start_time = time.time()
 
-            def update_progress(
-                completed: int, total: int, service: str, region: str
-            ) -> None:
-                if region_name not in region_tasks:
-                    region_tasks[region_name] = progress.add_task(
-                        f"  {region_name}", total=total
-                    )
-                progress.update(
-                    region_tasks[region_name],
-                    completed=completed,
-                    description=f"  {region_name} ({service})",
+        # Clear screen for refresh mode (but not first scan)
+        if refresh and scan_count > 1:
+            console.clear()
+            display_banner()
+            console.print(f"[bold cyan]Refresh Mode - Scan #{scan_count}[/bold cyan]")
+            console.print(
+                f"[dim]Last updated: {time.strftime('%Y-%m-%d %H:%M:%S')}[/dim]\n"
+            )
+
+        if refresh:
+            console.print(
+                f"[bold blue]Starting scan #{scan_count}{'...' if scan_count == 1 else ' (refresh mode)'}[/bold blue]"
+            )
+        else:
+            console.print(
+                "\n[bold blue]Starting parallel region scanning...[/bold blue]"
+            )
+
+        # Perform the scan with progress tracking
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+            console=console,
+        ) as progress:
+            all_results = perform_scan(
+                session,
+                region_list,
+                services,
+                tag_key,
+                tag_value,
+                max_workers,
+                service_workers,
+                use_cache,
+                progress,
+            )
+
+        scan_duration = time.time() - start_time
+        total_scan_time += scan_duration
+
+        if not all_results:
+            console.print(
+                "[yellow]⚪ No resources found matching the criteria.[/yellow]"
+            )
+            if not refresh:
+                return
+        else:
+            # Dynamically generate output file name if not provided
+            if output_file is None:
+                parts = ["aws-resources"]
+                if tag_key:
+                    parts.append(str(tag_key))
+                if tag_value:
+                    parts.append(str(tag_value))
+                # If only one region and one service, include them
+                if len(region_list) == 1:
+                    parts.append(region_list[0])
+                if len(services) == 1:
+                    parts.append(services[0])
+                timestamp = time.strftime("%Y%m%d-%H%M%S")
+                filename = "-".join(parts) + f"-{timestamp}.json"
+                current_output_file = Path(f"/tmp/aws_resource_scanner/{filename}")
+            else:
+                current_output_file = output_file
+
+            # Compare with existing results if requested (only on first scan)
+            if compare and scan_count == 1:
+                compare_with_existing(current_output_file, all_results)
+
+            # Output results
+            if not refresh or scan_count == 1:
+                console.print("\n[bold green]Generating output...[/bold green]")
+
+            resource_count = output_results(
+                all_results, current_output_file, output_format
+            )
+
+            # Show scan completion status
+
+            if refresh:
+                console.print(
+                    f"\n[bold green]Scan #{scan_count} completed![/bold green]"
+                )
+                console.print(
+                    f"[dim]Found {resource_count} resources across {len(all_results)} regions in {scan_duration:.1f}s[/dim]"
+                )
+                console.print("[dim cyan]Press Ctrl+C to stop refresh mode[/dim cyan]")
+            else:
+                console.print("\n[bold green]Scan completed successfully![/bold green]")
+                console.print(
+                    f"[dim]Found {resource_count} resources across {len(all_results)} regions in {scan_duration:.1f}s[/dim]"
                 )
 
-            return update_progress
+        # Exit if not in refresh mode
+        if not refresh:
+            break
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit region scanning tasks with progress callbacks
-            future_to_region = {
-                executor.submit(
-                    scan_region,
-                    session,
-                    region,
-                    services,
-                    tag_key,
-                    tag_value,
-                    service_workers,
-                    use_cache,
-                    create_progress_callback(region),
-                ): region
-                for region in region_list
-            }
+        # Wait for next refresh or stop if requested
+        if refresh and not stop_refresh:
+            console.print(f"[dim]Waiting {refresh_interval}s until next scan...[/dim]")
 
-            # Collect results as they complete
-            total_scan_time = 0.0
-            for future in as_completed(future_to_region):
-                region = future_to_region[future]
-                try:
-                    region_name, region_results, scan_duration = future.result(
-                        timeout=300
-                    )  # 5 minute timeout per region
-                    total_scan_time += scan_duration
-                    if region_results:
-                        all_results[region_name] = region_results
-                        # Update the region task to show completion
-                        if region_name in region_tasks:
-                            progress.update(
-                                region_tasks[region_name],
-                                description=f"  {region_name} ✓",
-                                completed=progress.tasks[
-                                    region_tasks[region_name]
-                                ].total,
-                            )
-                        console.print(
-                            f"[green]✓ Completed scanning {region_name}[/green]"
-                        )
-                    else:
-                        # Update the region task to show no resources
-                        if region_name in region_tasks:
-                            progress.update(
-                                region_tasks[region_name],
-                                description=f"  {region_name} (no resources)",
-                                completed=progress.tasks[
-                                    region_tasks[region_name]
-                                ].total,
-                            )
-                        console.print(
-                            f"[yellow]○ No resources found in {region_name}[/yellow]"
-                        )
-                except (
-                    ClientError,
-                    NoCredentialsError,
-                    botocore.exceptions.BotoCoreError,
-                ) as e:
-                    # Update the region task to show error
-                    if region in region_tasks:
-                        progress.update(
-                            region_tasks[region],
-                            description=f"  {region} ✗",
-                            completed=progress.tasks[region_tasks[region]].total,
-                        )
-                    console.print(f"[red]✗ Failed to scan {region}: {e}[/red]")
-                finally:
-                    progress.advance(main_task)
+            # Interruptible sleep
+            for _ in range(refresh_interval):
+                time.sleep(1)
+                if stop_refresh:
+                    pass
 
-    if not all_results:
-        console.print("[yellow]No resources found matching the criteria.[/yellow]")
-        return
-
-    # Dynamically generate output file name if not provided
-    if output_file is None:
-        parts = ["aws-resources"]
-        if tag_key:
-            parts.append(str(tag_key))
-        if tag_value:
-            parts.append(str(tag_value))
-        # If only one region and one service, include them
-        if len(region_list) == 1:
-            parts.append(region_list[0])
-        if len(services) == 1:
-            parts.append(services[0])
-        filename = "-".join(parts) + ".json"
-        output_file = Path(f"/tmp/aws_resource_scanner/{filename}")
-
-    # Compare with existing results if requested
-    if compare:
-        compare_with_existing(output_file, all_results)
-
-    # Output results
-    console.print("\n[bold green]Generating output...[/bold green]")
-    output_results(all_results, output_file, output_format)
-
-    console.print("\n[bold green]Scan completed successfully![/bold green]")
-    console.print(f"[dim]Total scan time: {total_scan_time:.1f}s[/dim]")
+        # Exit if stop was requested
+        if stop_refresh:
+            console.print(
+                f"[yellow]Refresh mode stopped after {scan_count} scans[/yellow]"
+            )
+            console.print(f"[dim]Total runtime: {total_scan_time:.1f}s[/dim]")
+            break
 
 
 if __name__ == "__main__":

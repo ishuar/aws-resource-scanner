@@ -123,8 +123,12 @@ def generate_markdown_summary(
 
 def output_results(
     results: Dict[str, Any], output_file: Path, output_format: str
-) -> None:
-    """Process results using modular output processors and format for output."""
+) -> int:
+    """Process results using modular output processors and format for output.
+
+    Returns:
+        int: The total number of flattened resources found.
+    """
     # Flatten results into a list of resources with the required columns
     flattened_resources: List[Dict[str, Any]] = []
 
@@ -226,6 +230,8 @@ def output_results(
         console.print(
             f"[red]Unknown output format '{output_format}'. Supported: json, table, md[/red]"
         )
+
+    return len(flattened_resources)
 
 
 def compare_with_existing(output_file: Path, new_data: Dict[str, Any]) -> None:

@@ -5,12 +5,72 @@ S3 Service Scanner
 Handles scanning of S3 resources including buckets.
 """
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional
 
-import botocore
+from botocore.exceptions import BotoCoreError, ClientError
 from rich.console import Console
 
 console = Console()
+
+# S3 operations can be parallelized for better performance
+# Using 6 workers to balance speed with AWS API rate limits
+S3_MAX_WORKERS = 6
+
+
+def _process_bucket_parallel(
+    s3_client: Any,
+    bucket: Dict[str, Any],
+    region: str,
+    tag_key: Optional[str],
+    tag_value: Optional[str],
+) -> Optional[Dict[str, Any]]:
+    """Process a single bucket in parallel - check region and tags."""
+    try:
+        bucket_name = bucket["Name"]
+
+        # Get bucket location to ensure we're only processing buckets in the target region
+        location_response = s3_client.get_bucket_location(Bucket=bucket_name)
+        bucket_region = location_response.get("LocationConstraint")
+
+        # Handle special case for us-east-1
+        if bucket_region is None:
+            bucket_region = "us-east-1"
+
+        # Only process buckets in the target region
+        if bucket_region != region:
+            return None
+
+        # Get bucket tags
+        try:
+            tags_response = s3_client.get_bucket_tagging(Bucket=bucket_name)
+            tags = tags_response.get("TagSet", [])
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "NoSuchTagSet":
+                tags = []
+            else:
+                console.print(
+                    f"[yellow]Could not get tags for bucket {bucket_name}: {e}[/yellow]"
+                )
+                tags = []
+
+        bucket["tags"] = tags
+
+        # Apply tag filtering if specified
+        if tag_key and tag_value:
+            if any(t["Key"] == tag_key and t["Value"] == tag_value for t in tags):
+                return bucket
+            else:
+                return None
+        else:
+            # No tag filtering, include all buckets in region
+            return bucket
+
+    except ClientError as e:
+        console.print(
+            f"[yellow]Could not process bucket {bucket['Name']}: {e}[/yellow]"
+        )
+        return None
 
 
 def scan_s3(
@@ -19,7 +79,7 @@ def scan_s3(
     tag_key: Optional[str] = None,
     tag_value: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Scan S3 resources in the specified region with optimized API filtering and pagination."""
+    """Scan S3 resources in the specified region with optimized parallel processing."""
     s3_client = session.client("s3", region_name=region)
     result = {}
     try:
@@ -31,59 +91,39 @@ def scan_s3(
         for page in page_iterator:
             buckets.extend(page.get("Buckets", []))
 
-        # Filter buckets by tags (must be done client-side)
+        # Process buckets in parallel for much better performance
         filtered_buckets = []
-        for bucket in buckets:
-            try:
-                # Get bucket location to ensure we're only processing buckets in the target region
-                location_response = s3_client.get_bucket_location(Bucket=bucket["Name"])
-                bucket_region = location_response.get("LocationConstraint")
 
-                # Handle special case for us-east-1
-                if bucket_region is None:
-                    bucket_region = "us-east-1"
+        # Use ThreadPoolExecutor to parallelize bucket processing
+        with ThreadPoolExecutor(max_workers=S3_MAX_WORKERS) as executor:
+            # Submit all bucket processing tasks
+            future_to_bucket = {
+                executor.submit(
+                    _process_bucket_parallel,
+                    s3_client,
+                    bucket,
+                    region,
+                    tag_key,
+                    tag_value,
+                ): bucket
+                for bucket in buckets
+            }
 
-                # Only process buckets in the target region
-                if bucket_region == region:
-                    if tag_key and tag_value:
-                        # Check bucket tags
-                        try:
-                            tags_response = s3_client.get_bucket_tagging(
-                                Bucket=bucket["Name"]
-                            )
-                            tags = tags_response.get("TagSet", [])
-
-                            if any(
-                                t["Key"] == tag_key and t["Value"] == tag_value
-                                for t in tags
-                            ):
-                                bucket["tags"] = tags
-                                filtered_buckets.append(bucket)
-                        except botocore.exceptions.ClientError as e:
-                            # Bucket has no tags or access denied
-                            if e.response["Error"]["Code"] != "NoSuchTagSet":
-                                console.print(
-                                    f"[yellow]Could not get tags for bucket {bucket['Name']}: {e}[/yellow]"
-                                )
-                    else:
-                        # No tag filtering, include all buckets in region
-                        try:
-                            tags_response = s3_client.get_bucket_tagging(
-                                Bucket=bucket["Name"]
-                            )
-                            bucket["tags"] = tags_response.get("TagSet", [])
-                        except botocore.exceptions.ClientError:
-                            bucket["tags"] = []
-                        filtered_buckets.append(bucket)
-
-            except botocore.exceptions.ClientError as e:
-                console.print(
-                    f"[yellow]Could not process bucket {bucket['Name']}: {e}[/yellow]"
-                )
+            # Collect results as they complete
+            for future in as_completed(future_to_bucket):
+                try:
+                    result_bucket = future.result()
+                    if result_bucket is not None:
+                        filtered_buckets.append(result_bucket)
+                except (ClientError, BotoCoreError) as e:
+                    bucket = future_to_bucket[future]
+                    console.print(
+                        f"[yellow]Error processing bucket {bucket.get('Name', 'unknown')}: {e}[/yellow]"
+                    )
 
         result["buckets"] = filtered_buckets
 
-    except botocore.exceptions.BotoCoreError as e:
+    except BotoCoreError as e:
         console.print(f"[red]S3 scan failed: {e}[/red]")
     return result
 
