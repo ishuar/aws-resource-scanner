@@ -6,10 +6,9 @@ Handles caching of scan results to improve performance and reduce API calls.
 
 import hashlib
 import pickle
-from pathlib import Path
 from datetime import datetime, timedelta
-from typing import Optional, Any
-
+from pathlib import Path
+from typing import Any, Dict, Optional, cast
 
 # Cache directory for scan results
 CACHE_DIR = Path("/tmp/aws_scanner_cache")
@@ -32,7 +31,7 @@ def get_cached_result(
     service: str,
     tag_key: Optional[str] = None,
     tag_value: Optional[str] = None,
-) -> Optional[Any]:
+) -> Optional[Dict[str, Any]]:
     """Get cached result if available and not expired."""
     if not CACHE_DIR.exists():
         return None
@@ -48,7 +47,7 @@ def get_cached_result(
             # Check if cache is still valid
             cache_time = datetime.fromtimestamp(cache_file.stat().st_mtime)
             if datetime.now() - cache_time < timedelta(minutes=CACHE_TTL_MINUTES):
-                return cached_data
+                return cast(Dict[str, Any], cached_data)
         except Exception:
             pass  # Ignore cache read errors
 

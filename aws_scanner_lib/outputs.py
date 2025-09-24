@@ -8,22 +8,37 @@ import json
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
+from deepdiff import DeepDiff
 from rich.console import Console
 from rich.table import Table
-from deepdiff import DeepDiff
 
 # Import service output processors
 from services import (
+    process_autoscaling_output,
     process_ec2_output,
-    process_s3_output,
     process_ecs_output,
     process_elb_output,
+    process_s3_output,
     process_vpc_output,
-    process_autoscaling_output,
 )
 
 console = Console()
+
+
+def ensure_output_directory(output_file: Path) -> None:
+    """Ensure the output directory exists, create if it doesn't."""
+    output_dir = output_file.parent
+    if not output_dir.exists():
+        try:
+            output_dir.mkdir(parents=True, exist_ok=True)
+            console.print(f"[dim]Created output directory: {output_dir}[/dim]")
+        except Exception as e:
+            console.print(
+                f"[red]Failed to create output directory {output_dir}: {e}[/red]"
+            )
+            raise
 
 
 def generate_markdown_summary(
@@ -68,7 +83,7 @@ def generate_markdown_summary(
         md_content.append(f"\n### {region}")
 
         # Group by service within region
-        region_services = {}
+        region_services: Dict[str, List[Dict[str, Any]]] = {}
         for resource in region_resources:
             service = resource["resource_family"]
             if service not in region_services:
@@ -111,7 +126,7 @@ def output_results(
 ) -> None:
     """Process results using modular output processors and format for output."""
     # Flatten results into a list of resources with the required columns
-    flattened_resources = []
+    flattened_resources: List[Dict[str, Any]] = []
 
     for region, services in results.items():
         for service_name, service_data in services.items():
@@ -131,6 +146,9 @@ def output_results(
                 process_vpc_output(service_data, region, flattened_resources)
             elif service_name == "autoscaling":
                 process_autoscaling_output(service_data, region, flattened_resources)
+
+    # Ensure output directory exists before writing files
+    ensure_output_directory(output_file)
 
     # Output in the requested format
     if output_format == "json":
@@ -168,6 +186,8 @@ def output_results(
 
         # Change extension to .md for markdown files
         md_output_file = output_file.with_suffix(".md")
+        # Ensure directory exists for markdown file (might have different path)
+        ensure_output_directory(md_output_file)
         md_output_file.write_text(markdown_content)
         console.print(f"[green]Markdown report saved to {md_output_file}[/green]")
 

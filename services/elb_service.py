@@ -5,13 +5,20 @@ ELB Service Scanner
 Handles scanning of ELB resources including load balancers, listeners, rules, and target groups.
 """
 
+from typing import Any, Dict, List, Optional
+
 import botocore
 from rich.console import Console
 
 console = Console()
 
 
-def scan_elb(session, region, tag_key=None, tag_value=None):
+def scan_elb(
+    session: Any,
+    region: str,
+    tag_key: Optional[str] = None,
+    tag_value: Optional[str] = None,
+) -> Dict[str, Any]:
     """Scan ELB resources in the specified region with optimized API filtering and pagination."""
     elbv2_client = session.client("elbv2", region_name=region)
     result = {}
@@ -154,8 +161,6 @@ def scan_elb(session, region, tag_key=None, tag_value=None):
         result["listeners"] = listeners
         result["rules"] = rules
 
-        result["load_balancers"] = filtered_load_balancers
-
         # Listeners
         filtered_listeners = []
         for lb in filtered_load_balancers:
@@ -199,46 +204,14 @@ def scan_elb(session, region, tag_key=None, tag_value=None):
 
         result["listener_rules"] = filtered_rules
 
-        # Target Groups
-        target_groups_response = elbv2_client.describe_target_groups()
-        target_groups = target_groups_response.get("TargetGroups", [])
-
-        filtered_target_groups = []
-        for tg in target_groups:
-            tg_arn = tg["TargetGroupArn"]
-            try:
-                tags_response = elbv2_client.describe_tags(ResourceArns=[tg_arn])
-                tag_descriptions = tags_response.get("TagDescriptions", [])
-
-                if tag_descriptions:
-                    tags = tag_descriptions[0].get("Tags", [])
-
-                    if tag_key and tag_value:
-                        if any(
-                            t["Key"] == tag_key and t["Value"] == tag_value
-                            for t in tags
-                        ):
-                            tg["Tags"] = tags  # Add tags to target group data
-                            filtered_target_groups.append(tg)
-                    else:
-                        tg["Tags"] = tags  # Add tags to target group data
-                        filtered_target_groups.append(tg)
-                elif not tag_key and not tag_value:
-                    tg["Tags"] = []  # No tags but include if no filter
-                    filtered_target_groups.append(tg)
-            except botocore.exceptions.ClientError as e:
-                console.print(
-                    f"[yellow]Could not get tags for target group {tg_arn}: {e}[/yellow]"
-                )
-
-        result["target_groups"] = filtered_target_groups
-
     except botocore.exceptions.BotoCoreError as e:
         console.print(f"[red]ELB scan failed: {e}[/red]")
     return result
 
 
-def process_elb_output(service_data, region, flattened_resources):
+def process_elb_output(
+    service_data: Dict[str, Any], region: str, flattened_resources: List[Dict[str, Any]]
+) -> None:
     """Process ELB scan results for output formatting."""
     # Load Balancers
     for lb in service_data.get("load_balancers", []):

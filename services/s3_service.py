@@ -5,13 +5,20 @@ S3 Service Scanner
 Handles scanning of S3 resources including buckets.
 """
 
+from typing import Any, Dict, List, Optional
+
 import botocore
 from rich.console import Console
 
 console = Console()
 
 
-def scan_s3(session, region, tag_key=None, tag_value=None):
+def scan_s3(
+    session: Any,
+    region: str,
+    tag_key: Optional[str] = None,
+    tag_value: Optional[str] = None,
+) -> Dict[str, Any]:
     """Scan S3 resources in the specified region with optimized API filtering and pagination."""
     s3_client = session.client("s3", region_name=region)
     result = {}
@@ -81,7 +88,9 @@ def scan_s3(session, region, tag_key=None, tag_value=None):
     return result
 
 
-def process_s3_output(service_data, region, flattened_resources):
+def process_s3_output(
+    service_data: Dict[str, Any], region: str, flattened_resources: List[Dict[str, Any]]
+) -> None:
     """Process S3 scan results for output formatting."""
     for bucket in service_data.get("buckets", []):
         bucket_name = bucket.get("Name", "N/A")

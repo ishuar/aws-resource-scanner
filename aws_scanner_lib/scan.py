@@ -4,27 +4,28 @@ Scan module for AWS Scanner
 Handles scanning operations for AWS services across regions.
 """
 
-import time
 import random
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Optional, Dict, Any, Tuple
-from rich.console import Console
+from typing import Any, Dict, List, Optional, Tuple, cast
+
 import boto3
 import botocore
-from botocore.exceptions import ClientError, NoCredentialsError, EndpointConnectionError
-
-# Import cache functions
-from .cache import get_cached_result, cache_result
+from botocore.exceptions import ClientError, EndpointConnectionError, NoCredentialsError
+from rich.console import Console
 
 # Import service scanners
 from services import (
+    scan_autoscaling,
     scan_ec2,
-    scan_s3,
     scan_ecs,
     scan_elb,
+    scan_s3,
     scan_vpc,
-    scan_autoscaling,
 )
+
+# Import cache functions
+from .cache import cache_result, get_cached_result
 
 console = Console()
 
@@ -32,7 +33,7 @@ console = Console()
 SUPPORTED_SERVICES = ["ec2", "s3", "ecs", "elb", "vpc", "autoscaling"]
 
 
-def retry_with_backoff(func, max_retries: int = 3, base_delay: float = 1):
+def retry_with_backoff(func: Any, max_retries: int = 3, base_delay: float = 1) -> Any:
     """Retry function with exponential backoff for transient errors."""
     for attempt in range(max_retries):
         try:
@@ -89,7 +90,7 @@ def scan_service(
             console.print(f"    Using cached result for {service} in {region}")
             return cached_result
 
-    def _do_scan():
+    def _do_scan() -> dict[str, Any]:
         if service == "ec2":
             return scan_ec2(session, region, tag_key, tag_value)
         elif service == "s3":
@@ -115,7 +116,7 @@ def scan_service(
         if use_cache and result:
             cache_result(region, service, result, tag_key, tag_value)
 
-        return result
+        return cast(Dict[str, Any], result)
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "Unknown")
         console.print(
@@ -143,7 +144,7 @@ def scan_region(
     tag_value: Optional[str] = None,
     service_workers: int = 4,
     use_cache: bool = True,
-    progress_callback=None,
+    progress_callback: Optional[Any] = None,
 ) -> Tuple[str, Dict[str, Any], float]:
     """Scan all services in a single region with parallel service scanning."""
     start_time = time.time()

@@ -6,13 +6,20 @@ Handles scanning of Auto Scaling resources including auto scaling groups,
 launch configurations, and launch templates.
 """
 
-import botocore  # type: ignore
+from typing import Any, Dict, List, Optional
+
+import botocore
 from rich.console import Console
 
 console = Console()
 
 
-def scan_autoscaling(session, region, tag_key=None, tag_value=None):
+def scan_autoscaling(
+    session: Any,
+    region: str,
+    tag_key: Optional[str] = None,
+    tag_value: Optional[str] = None,
+) -> Dict[str, Any]:
     """Scan Auto Scaling resources in the specified region."""
     autoscaling_client = session.client("autoscaling", region_name=region)
     result = {}
@@ -65,7 +72,9 @@ def scan_autoscaling(session, region, tag_key=None, tag_value=None):
             lt_response = ec2_client.describe_launch_templates()
             launch_templates = lt_response.get("LaunchTemplates", [])
 
-            def filter_tags_ec2(resources):
+            def filter_tags_ec2(
+                resources: List[Dict[str, Any]],
+            ) -> List[Dict[str, Any]]:
                 if tag_key and tag_value:
                     return [
                         r
@@ -89,7 +98,9 @@ def scan_autoscaling(session, region, tag_key=None, tag_value=None):
     return result
 
 
-def process_autoscaling_output(service_data, region, flattened_resources):
+def process_autoscaling_output(
+    service_data: Dict[str, Any], region: str, flattened_resources: List[Dict[str, Any]]
+) -> None:
     """Process Auto Scaling scan results for output formatting."""
     # Auto Scaling Groups
     for asg in service_data.get("auto_scaling_groups", []):

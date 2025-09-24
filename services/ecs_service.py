@@ -5,13 +5,20 @@ ECS Service Scanner
 Handles scanning of ECS resources including clusters, services, task definitions, and capacity providers.
 """
 
+from typing import Any, Dict, List, Optional
+
 import botocore
 from rich.console import Console
 
 console = Console()
 
 
-def scan_ecs(session, region, tag_key=None, tag_value=None):
+def scan_ecs(
+    session: Any,
+    region: str,
+    tag_key: Optional[str] = None,
+    tag_value: Optional[str] = None,
+) -> Dict[str, Any]:
     """Scan ECS resources in the specified region with optimized API filtering and pagination."""
     ecs_client = session.client("ecs", region_name=region)
     result = {}
@@ -193,7 +200,9 @@ def scan_ecs(session, region, tag_key=None, tag_value=None):
     return result
 
 
-def process_ecs_output(service_data, region, flattened_resources):
+def process_ecs_output(
+    service_data: Dict[str, Any], region: str, flattened_resources: List[Dict[str, Any]]
+) -> None:
     """Process ECS scan results for output formatting."""
     # ECS Clusters
     for cluster in service_data.get("clusters", []):

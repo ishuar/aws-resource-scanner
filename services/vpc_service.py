@@ -6,13 +6,20 @@ Handles scanning of VPC resources including VPCs, subnets, NAT gateways, interne
 route tables, DHCP options, VPC peering connections, and VPC endpoints.
 """
 
+from typing import Any, Dict, List, Optional
+
 import botocore  # pyright: ignore[reportMissingImports]
 from rich.console import Console  # pyright: ignore[reportMissingImports]
 
 console = Console()
 
 
-def scan_vpc(session, region, tag_key=None, tag_value=None):
+def scan_vpc(
+    session: Any,
+    region: str,
+    tag_key: Optional[str] = None,
+    tag_value: Optional[str] = None,
+) -> Dict[str, Any]:
     """Scan VPC resources in the specified region with optimized API filtering and pagination."""
     ec2_client = session.client("ec2", region_name=region)
     result = {}
@@ -155,22 +162,14 @@ def scan_vpc(session, region, tag_key=None, tag_value=None):
         result["vpc_peering_connections"] = vpc_peering_connections
         result["vpc_endpoints"] = vpc_endpoints
 
-        # Store all results
-        result["vpcs"] = vpcs
-        result["subnets"] = subnets
-        result["nat_gateways"] = nat_gateways
-        result["internet_gateways"] = internet_gateways
-        result["route_tables"] = route_tables
-        result["dhcp_options"] = dhcp_options
-        result["peering_connections"] = vpc_peering_connections
-        result["endpoints"] = vpc_endpoints
-
     except botocore.exceptions.BotoCoreError as e:
         console.print(f"[red]VPC scan failed: {e}[/red]")
     return result
 
 
-def process_vpc_output(service_data, region, flattened_resources):
+def process_vpc_output(
+    service_data: Dict[str, Any], region: str, flattened_resources: List[Dict[str, Any]]
+) -> None:
     """Process VPC scan results for output formatting."""
     # VPCs
     for vpc in service_data.get("vpcs", []):

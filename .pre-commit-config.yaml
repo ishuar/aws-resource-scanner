@@ -31,8 +31,11 @@ repos:
     rev: v1.18.2
     hooks:
       - id: mypy
-        additional_dependencies: [boto3, botocore]
-        files: ^(aws_scanner_lib|services|cli\.py|aws_scanner\.py)
+        additional_dependencies: [boto3, botocore, typer, rich]
+        files: ^(aws_scanner_lib|services|tests|aws_scanner|cli)/.*\.py$
+        args:
+          - "--ignore-missing-imports"
+          - "--explicit-package-bases"
 
   # --- Security ---
   # - repo: https://github.com/PyCQA/bandit

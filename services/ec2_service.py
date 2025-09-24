@@ -5,13 +5,20 @@ EC2 Service Scanner
 Handles scanning of EC2 resources including instances, volumes, security groups, AMIs, and snapshots.
 """
 
+from typing import Any, Dict, List, Optional
+
 import botocore
 from rich.console import Console
 
 console = Console()
 
 
-def scan_ec2(session, region, tag_key=None, tag_value=None):
+def scan_ec2(
+    session: Any,
+    region: str,
+    tag_key: Optional[str] = None,
+    tag_value: Optional[str] = None,
+) -> Dict[str, Any]:
     """Scan EC2 resources in the specified region with optimized API filtering and pagination."""
     ec2_client = session.client("ec2", region_name=region)
     result = {}
@@ -112,7 +119,9 @@ def scan_ec2(session, region, tag_key=None, tag_value=None):
     return result
 
 
-def process_ec2_output(service_data, region, flattened_resources):
+def process_ec2_output(
+    service_data: Dict[str, Any], region: str, flattened_resources: List[Dict[str, Any]]
+) -> None:
     """Process EC2 scan results for output formatting."""
     # EC2 Instances
     for instance in service_data.get("instances", []):
