@@ -1,0 +1,308 @@
+"""
+ECS Service Scanner
+------------------
+
+Handles scanning of ECS resources including clusters, services, task definitions, and capacity providers.
+"""
+
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, List, Optional
+
+from botocore.exceptions import BotoCoreError, ClientError
+from rich.console import Console
+
+console = Console()
+
+ECS_BATCH_SIZE = 10  # ECS describe_services supports up to 10 services per call
+ECS_TASK_DEF_MAX_WORKERS = (
+    4  # Parallel workers for task definition processing (reduced to avoid throttling)
+)
+
+
+def _process_task_definition_parallel(
+    ecs_client: Any, task_def_arn: str, tag_key: Optional[str], tag_value: Optional[str]
+) -> Any:
+    """Process a single task definition in parallel - describe and get tags."""
+    try:
+        task_def_details = ecs_client.describe_task_definition(
+            taskDefinition=task_def_arn
+        )
+        task_def = task_def_details.get("taskDefinition")
+
+        if not task_def:
+            return None
+
+        full_task_def_arn = task_def["taskDefinitionArn"]
+        try:
+            tags_response = ecs_client.list_tags_for_resource(
+                resourceArn=full_task_def_arn
+            )
+            tags = tags_response.get("tags", [])
+        except ClientError as e:
+            console.print(
+                f"[yellow]Could not get tags for task definition {full_task_def_arn}: {e}[/yellow]"
+            )
+            tags = []
+
+        task_def["tags"] = tags
+
+        # Apply tag filtering if specified
+        if tag_key and tag_value:
+            if any(t["key"] == tag_key and t["value"] == tag_value for t in tags):
+                return task_def
+            else:
+                return None
+        else:
+            return task_def
+
+    except ClientError as e:
+        console.print(
+            f"[yellow]Could not describe task definition {task_def_arn}: {e}[/yellow]"
+        )
+        return None
+
+
+def scan_ecs(
+    session: Any,
+    region: str,
+    tag_key: Optional[str] = None,
+    tag_value: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Scan ECS resources in the specified region with optimized API filtering and pagination."""
+    ecs_client = session.client("ecs", region_name=region)
+    result = {}
+    try:
+        # ECS Clusters with pagination
+        clusters = []
+        paginator = ecs_client.get_paginator("list_clusters")
+        page_iterator = paginator.paginate()
+
+        for page in page_iterator:
+            cluster_arns = page.get("clusterArns", [])
+
+            # Get cluster details in batches for efficiency
+            if cluster_arns:
+                cluster_details = ecs_client.describe_clusters(clusters=cluster_arns)
+                clusters.extend(cluster_details.get("clusters", []))
+
+        # Filter clusters by tags
+        filtered_clusters = []
+        for cluster in clusters:
+            cluster_arn = cluster["clusterArn"]
+            try:
+                tags_response = ecs_client.list_tags_for_resource(
+                    resourceArn=cluster_arn
+                )
+                tags = tags_response.get("tags", [])
+
+                if tag_key and tag_value:
+                    if any(
+                        t["key"] == tag_key and t["value"] == tag_value for t in tags
+                    ):
+                        cluster["tags"] = tags
+                        filtered_clusters.append(cluster)
+                else:
+                    cluster["tags"] = tags
+                    filtered_clusters.append(cluster)
+
+            except ClientError as e:
+                console.print(
+                    f"[yellow]Could not get tags for cluster {cluster_arn}: {e}[/yellow]"
+                )
+
+        # ECS Services with pagination
+        filtered_services = []
+        for cluster in filtered_clusters:
+            cluster_name = cluster["clusterName"]
+            try:
+                # List services with pagination
+                service_arns = []
+                paginator = ecs_client.get_paginator("list_services")
+                page_iterator = paginator.paginate(cluster=cluster_name)
+
+                for page in page_iterator:
+                    service_arns.extend(page.get("serviceArns", []))
+
+                # Process services in batches for efficiency
+                for i in range(0, len(service_arns), ECS_BATCH_SIZE):
+                    batch_arns = service_arns[i : i + ECS_BATCH_SIZE]
+
+                    try:
+                        service_details = ecs_client.describe_services(
+                            cluster=cluster_name, services=batch_arns
+                        )
+
+                        for service in service_details.get("services", []):
+                            service_arn = service["serviceArn"]
+                            try:
+                                tags_response = ecs_client.list_tags_for_resource(
+                                    resourceArn=service_arn
+                                )
+                                tags = tags_response.get("tags", [])
+
+                                if tag_key and tag_value:
+                                    if any(
+                                        t["key"] == tag_key and t["value"] == tag_value
+                                        for t in tags
+                                    ):
+                                        service["tags"] = tags
+                                        service["clusterName"] = cluster_name
+                                        filtered_services.append(service)
+                                else:
+                                    service["tags"] = tags
+                                    service["clusterName"] = cluster_name
+                                    filtered_services.append(service)
+
+                            except ClientError as e:
+                                console.print(
+                                    f"[yellow]Could not get tags for service {service_arn}: {e}[/yellow]"
+                                )
+
+                    except ClientError as e:
+                        console.print(
+                            f"[yellow]Could not describe services in cluster {cluster_name}: {e}[/yellow]"
+                        )
+
+            except ClientError as e:
+                console.print(
+                    f"[yellow]Could not list services in cluster {cluster_name}: {e}[/yellow]"
+                )
+
+        # Task Definitions with pagination and parallel processing
+        task_definitions = []
+        all_task_def_arns = []
+
+        try:
+            paginator = ecs_client.get_paginator("list_task_definitions")
+            page_iterator = paginator.paginate()
+
+            # Collect all task definition ARNs first
+            for page in page_iterator:
+                all_task_def_arns.extend(page.get("taskDefinitionArns", []))
+
+            # Process task definitions in parallel for much better performance
+            with ThreadPoolExecutor(max_workers=ECS_TASK_DEF_MAX_WORKERS) as executor:
+                # Submit all task definition processing tasks
+                future_to_arn = {
+                    executor.submit(
+                        _process_task_definition_parallel,
+                        ecs_client,
+                        task_def_arn,
+                        tag_key,
+                        tag_value,
+                    ): task_def_arn
+                    for task_def_arn in all_task_def_arns
+                }
+
+                # Collect results as they complete
+                for future in as_completed(future_to_arn):
+                    try:
+                        result_task_def = future.result()
+                        if result_task_def is not None:
+                            task_definitions.append(result_task_def)
+                    except (ClientError, BotoCoreError) as e:
+                        task_def_arn = future_to_arn[future]
+                        console.print(
+                            f"[yellow]Error processing task definition {task_def_arn}: {e}[/yellow]"
+                        )
+
+        except (ClientError, BotoCoreError) as e:
+            console.print(f"[yellow]Could not list task definitions: {e}[/yellow]")
+
+        # Capacity Providers (if any clusters exist)
+        capacity_providers = []
+        if filtered_clusters:
+            try:
+                # Note: describe_capacity_providers doesn't support pagination
+                # We'll use the direct API call instead
+                response = ecs_client.describe_capacity_providers()
+                capacity_providers = response.get("capacityProviders", [])
+
+            except (ClientError, BotoCoreError) as e:
+                console.print(
+                    f"[yellow]Could not list capacity providers: {e}[/yellow]"
+                )
+
+        result["clusters"] = filtered_clusters
+        result["services"] = filtered_services
+        result["task_definitions"] = task_definitions
+        result["capacity_providers"] = capacity_providers
+
+    except BotoCoreError as e:
+        console.print(f"[red]ECS scan failed: {e}[/red]")
+    return result
+
+
+def process_ecs_output(
+    service_data: Dict[str, Any], region: str, flattened_resources: List[Dict[str, Any]]
+) -> None:
+    """Process ECS scan results for output formatting."""
+    # ECS Clusters
+    for cluster in service_data.get("clusters", []):
+        cluster_name = cluster.get("clusterName", "N/A")
+        cluster_arn = cluster.get("clusterArn", "N/A")
+
+        flattened_resources.append(
+            {
+                "region": region,
+                "resource_name": cluster_name,
+                "resource_family": "ecs",
+                "resource_type": "cluster",
+                "resource_id": (
+                    cluster_arn.split("/")[-1] if cluster_arn != "N/A" else "N/A"
+                ),
+                "resource_arn": cluster_arn,
+            }
+        )
+
+    # ECS Services
+    for service in service_data.get("services", []):
+        service_name = service.get("serviceName", "N/A")
+        service_arn = service.get("serviceArn", "N/A")
+
+        flattened_resources.append(
+            {
+                "region": region,
+                "resource_name": service_name,
+                "resource_family": "ecs",
+                "resource_type": "service",
+                "resource_id": (
+                    service_arn.split("/")[-1] if service_arn != "N/A" else "N/A"
+                ),
+                "resource_arn": service_arn,
+            }
+        )
+
+    # ECS Task Definitions
+    for task_def in service_data.get("task_definitions", []):
+        task_def_family = task_def.get("family", "N/A")
+        task_def_arn = task_def.get("taskDefinitionArn", "N/A")
+
+        flattened_resources.append(
+            {
+                "region": region,
+                "resource_name": f"{task_def_family}:{task_def.get('revision', 'N/A')}",
+                "resource_family": "ecs",
+                "resource_type": "task_definition",
+                "resource_id": (
+                    task_def_arn.split("/")[-1] if task_def_arn != "N/A" else "N/A"
+                ),
+                "resource_arn": task_def_arn,
+            }
+        )
+
+    # ECS Capacity Providers
+    for cp in service_data.get("capacity_providers", []):
+        cp_name = cp.get("name", "N/A")
+        cp_arn = cp.get("capacityProviderArn", "N/A")
+
+        flattened_resources.append(
+            {
+                "region": region,
+                "resource_name": cp_name,
+                "resource_family": "ecs",
+                "resource_type": "capacity_provider",
+                "resource_id": cp_name,
+                "resource_arn": cp_arn,
+            }
+        )
