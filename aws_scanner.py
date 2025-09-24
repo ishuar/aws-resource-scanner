@@ -532,7 +532,7 @@ def main(
             for _ in range(refresh_interval):
                 time.sleep(1)
                 if stop_refresh:
-                    pass
+                    break
 
         # Exit if stop was requested
         if stop_refresh:
