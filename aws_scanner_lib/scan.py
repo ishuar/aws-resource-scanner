@@ -90,7 +90,7 @@ def scan_service(
             console.print(f"    Using cached result for {service} in {region}")
             return cached_result
 
-    def _do_scan() -> dict[str, Any]:
+    def _do_scan() -> Dict[str, Any]:
         if service == "ec2":
             return scan_ec2(session, region, tag_key, tag_value)
         elif service == "s3":
