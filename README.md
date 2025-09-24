@@ -114,80 +114,80 @@ pre-commit install --install-hooks
 
 ```bash
 # Display help and available options
-poetry run python aws-scanner--help
+poetry run python aws-scanner --help
 
 # Basic scan with default settings (all supported services, EU & US regions)
-poetry run python aws-scanner-global
+poetry run python aws-scanner -global
 
 # Scan specific services
-poetry run python aws-scanner--services ec2,s3,vpc
+poetry run python aws-scanner --services ec2,s3,vpc
 
 # Scan specific regions
-poetry run python aws-scanner--regions us-east-1,eu-west-1
+poetry run python aws-scanner --regions us-east-1,eu-west-1
 ```
 
 ### Service-Specific Scanning
 
 ```bash
 # Scan only EC2 resources
-poetry run python aws-scanner--services ec2
+poetry run python aws-scanner --services ec2
 
 # Scan ECS and VPC resources
-poetry run python aws-scanner--services ecs,vpc
+poetry run python aws-scanner --services ecs,vpc
 
 # Scan all services in specific regions
-poetry run python aws-scanner--regions us-east-1,us-west-2
+poetry run python aws-scanner --regions us-east-1,us-west-2
 
 # Combine service and region filtering
-poetry run python aws-scanner--services ec2,s3 --regions eu-central-1,eu-west-1
+poetry run python aws-scanner --services ec2,s3 --regions eu-central-1,eu-west-1
 ```
 
 ### Tag-Based Filtering
 
 ```bash
 # Filter by environment tag
-poetry run python aws-scanner--tag-key Environment --tag-value Production
+poetry run python aws-scanner --tag-key Environment --tag-value Production
 
 # Filter by application tag
-poetry run python aws-scanner--tag-key app --tag-value web-server
+poetry run python aws-scanner --tag-key app --tag-value web-server
 
 # Combine tag filtering with specific services
-poetry run python aws-scanner--services ec2,ecs --tag-key Team --tag-value DevOps
+poetry run python aws-scanner --services ec2,ecs --tag-key Team --tag-value DevOps
 
 # Filter by cost center in specific regions
-poetry run python aws-scanner--regions us-east-1 --tag-key CostCenter --tag-value Engineering
+poetry run python aws-scanner --regions us-east-1 --tag-key CostCenter --tag-value Engineering
 ```
 
 ### Output Formats
 
 ```bash
 # Default table format (human-readable)
-poetry run python aws-scanner--format table
+poetry run python aws-scanner --format table
 
 # JSON format for programmatic processing
-poetry run python aws-scanner--format json --output results.json
+poetry run python aws-scanner --format json --output results.json
 
 # Markdown format for documentation
-poetry run python aws-scanner--format md --output report.md
+poetry run python aws-scanner --format md --output report.md
 
 # Export filtered results to JSON
-poetry run python aws-scanner--tag-key Environment --tag-value Production --format json --output prod-resources.json
+poetry run python aws-scanner --tag-key Environment --tag-value Production --format json --output prod-resources.json
 ```
 
 ### Advanced Options
 
 ```bash
 # Dry run (preview without execution)
-poetry run python aws-scanner--dry-run --services ec2,s3
+poetry run python aws-scanner --dry-run --services ec2,s3
 
 # Disable caching for fresh data
-poetry run python aws-scanner--no-cache
+poetry run python aws-scanner --no-cache
 
 # Configure worker threads for performance
-poetry run python aws-scanner--max-workers 10 --service-workers 6
+poetry run python aws-scanner --max-workers 10 --service-workers 6
 
 # Compare with existing results
-poetry run python aws-scanner--compare --output current-scan.json
+poetry run python aws-scanner --compare --output current-scan.json
 ```
 
 ### Real-World Examples
@@ -304,7 +304,7 @@ For detailed debugging information:
 ls /tmp/aws_resource_scanner/
 
 # Dry run to verify configuration
-poetry run python aws-scanner--dry-run
+poetry run python aws-scanner --dry-run
 ```
 
 ## 🤝 **Contributing**
