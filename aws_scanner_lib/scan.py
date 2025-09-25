@@ -10,8 +10,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional, Tuple, cast
 
 import boto3
-import botocore
-from botocore.exceptions import ClientError, EndpointConnectionError, NoCredentialsError
+from botocore.exceptions import (
+    ClientError,
+    ConnectTimeoutError,
+    EndpointConnectionError,
+    NoCredentialsError,
+)
 from rich.console import Console
 
 # Import cache functions
@@ -112,7 +116,7 @@ def retry_with_backoff(func: Any, max_retries: int = 3, base_delay: float = 1) -
                     time.sleep(delay)
                     continue
             raise e
-        except (EndpointConnectionError, botocore.exceptions.ConnectTimeoutError) as e:
+        except (EndpointConnectionError, ConnectTimeoutError) as e:
             if attempt < max_retries - 1:
                 delay = base_delay * (2**attempt) + random.uniform(0, 1)
                 console.print(f"[yellow]Retrying connection in {delay:.1f}s[/yellow]")
@@ -150,17 +154,27 @@ def scan_service(
         )
 
         if service == "ec2":
-            return scan_ec2(session, region, tag_key, tag_value)
+            return scan_ec2(
+                session, region
+            )  # No tag filtering in service-specific scan
         elif service == "s3":
-            return scan_s3(session, region, tag_key, tag_value)
+            return scan_s3(session, region)  # No tag filtering in service-specific scan
         elif service == "ecs":
-            return scan_ecs(session, region, tag_key, tag_value)
+            return scan_ecs(
+                session, region
+            )  # No tag filtering in service-specific scan
         elif service == "elb":
-            return scan_elb(session, region, tag_key, tag_value)
+            return scan_elb(
+                session, region
+            )  # No tag filtering in service-specific scan
         elif service == "vpc":
-            return scan_vpc(session, region, tag_key, tag_value)
+            return scan_vpc(
+                session, region
+            )  # No tag filtering in service-specific scan
         elif service == "autoscaling":
-            return scan_autoscaling(session, region, tag_key, tag_value)
+            return scan_autoscaling(
+                session, region
+            )  # No tag filtering in service-specific scan
         else:
             console.print(
                 f"[yellow]Service scan for '{service}' not implemented yet.[/yellow]"
