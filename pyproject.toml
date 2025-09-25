@@ -4,7 +4,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [project]
-name = "aws-service-scanner"
+name = "aws-resource-scanner"
 version = "1.0.0"
 description = "AWS Multi-Service Scanner with tag-based filtering and advanced optimizations"
 authors = [
@@ -45,8 +45,9 @@ Homepage = "https://github.com/ishuar/aws-service-scanner"
 Repository = "https://github.com/ishuar/aws-service-scanner/tree/main"
 
 [project.scripts]
-aws-scanner = "aws_scanner:app"
-aws-service-scanner = "aws_scanner:app"
+aws-scanner = "cli:app"
+aws-resource-scanner = "cli:app"
+aws-scan = "cli:app"
 
 [tool.poetry]
 packages = [
