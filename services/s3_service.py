@@ -22,10 +22,8 @@ def _process_bucket_parallel(
     s3_client: Any,
     bucket: Dict[str, Any],
     region: str,
-    tag_key: Optional[str],
-    tag_value: Optional[str],
 ) -> Optional[Dict[str, Any]]:
-    """Process a single bucket in parallel - check region and tags."""
+    """Process a single bucket in parallel - check region only."""
     try:
         bucket_name = bucket["Name"]
 
@@ -41,7 +39,7 @@ def _process_bucket_parallel(
         if bucket_region != region:
             return None
 
-        # Get bucket tags
+        # Get bucket tags for metadata (but no filtering)
         try:
             tags_response = s3_client.get_bucket_tagging(Bucket=bucket_name)
             tags = tags_response.get("TagSet", [])
@@ -56,15 +54,8 @@ def _process_bucket_parallel(
 
         bucket["tags"] = tags
 
-        # Apply tag filtering if specified
-        if tag_key and tag_value:
-            if any(t["Key"] == tag_key and t["Value"] == tag_value for t in tags):
-                return bucket
-            else:
-                return None
-        else:
-            # No tag filtering, include all buckets in region
-            return bucket
+        # Return all buckets in the target region (no tag filtering)
+        return bucket
 
     except ClientError as e:
         console.print(
@@ -76,14 +67,12 @@ def _process_bucket_parallel(
 def scan_s3(
     session: Any,
     region: str,
-    tag_key: Optional[str] = None,
-    tag_value: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Scan S3 resources in the specified region with optimized parallel processing."""
+    """Scan all S3 resources in the specified region without tag filtering."""
     s3_client = session.client("s3", region_name=region)
     result = {}
     try:
-        # S3 buckets with pagination (S3 doesn't support server-side tag filtering for list_buckets)
+        # S3 buckets with pagination
         buckets = []
         paginator = s3_client.get_paginator("list_buckets")
         page_iterator = paginator.paginate()
@@ -96,15 +85,13 @@ def scan_s3(
 
         # Use ThreadPoolExecutor to parallelize bucket processing
         with ThreadPoolExecutor(max_workers=S3_MAX_WORKERS) as executor:
-            # Submit all bucket processing tasks
+            # Submit all bucket processing tasks (no tag filtering)
             future_to_bucket = {
                 executor.submit(
                     _process_bucket_parallel,
                     s3_client,
                     bucket,
                     region,
-                    tag_key,
-                    tag_value,
                 ): bucket
                 for bucket in buckets
             }
@@ -140,7 +127,7 @@ def process_s3_output(
                 "region": region,
                 "resource_name": bucket_name,
                 "resource_family": "s3",
-                "resource_type": "bucket",
+                "resource_type": "s3:bucket",
                 "resource_id": bucket_name,
                 "resource_arn": f"arn:aws:s3:::{bucket_name}",
             }
