@@ -5,7 +5,7 @@ ECS Service Scanner
 Handles comprehensive scanning of ECS resources including
 clusters, services, task definitions, and capacity providers.
 Tag-based filtering is handled centrally by the Resource Groups Tagging API.
-Documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs.html
+? Documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs.html
 
 """
 
@@ -245,7 +245,6 @@ def process_ecs_output(
         flattened_resources.append(
             {
                 "region": region,
-                "resource_family": "ecs",
                 "resource_type": "ecs:cluster",
                 "resource_id": cluster_name,
                 "resource_arn": cluster_arn,
@@ -260,7 +259,6 @@ def process_ecs_output(
         flattened_resources.append(
             {
                 "region": region,
-                "resource_family": "ecs",
                 "resource_type": "ecs:service",
                 "resource_id": service_name,
                 "resource_arn": service_arn,

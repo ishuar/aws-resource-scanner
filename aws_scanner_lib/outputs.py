@@ -319,7 +319,7 @@ def output_results(
         # Also save table data as JSON to file
         output_file.write_text(json.dumps(flattened_resources, indent=2))
         console.print(f"[green]Data also saved to {output_file}[/green]")
-    elif output_format == "md":
+    elif output_format in ("md", "markdown"):
         # Generate markdown summary report
         markdown_content = generate_markdown_summary(flattened_resources, results)
 
@@ -335,22 +335,14 @@ def output_results(
         table = Table(title="AWS Resources")
         table.add_column("Region", style="blue")
         table.add_column("Resource Name", style="cyan")
-        table.add_column("Resource Family", style="magenta")
         table.add_column("Resource Type", style="yellow")
         table.add_column("Resource ID", style="green")
         table.add_column("Resource ARN", style="white")
 
         for resource in flattened_resources:
-            # Extract service from resource_type for resource_family
-            service = (
-                resource["resource_type"].split(":")[0]
-                if ":" in resource["resource_type"]
-                else resource["resource_type"]
-            )
             table.add_row(
                 resource.get("region", "N/A"),
                 resource.get("resource_name", resource["resource_id"]),
-                service,
                 resource["resource_type"],
                 resource["resource_id"],
                 resource["resource_arn"],

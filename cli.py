@@ -103,7 +103,7 @@ def scan_command(
         help="Output file path. If not provided, a dynamic name will be generated.",
     ),
     output_format: str = typer.Option(
-        "table", "--format", "-f", help="Output format (json|table|md)"
+        "table", "--format", "-f", help="Output format (json|table|md|markdown)"
     ),
     compare: bool = typer.Option(
         False, "--compare", "-c", help="Compare with existing results"

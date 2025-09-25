@@ -3,7 +3,8 @@ ELB Service Scanner
 ------------------
 
 Handles scanning of ELB resources including load balancers, listeners, rules, and target groups.
-Documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elbv2.html
+?Documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elbv2.html
+
 """
 
 from typing import Any, Dict, List
@@ -192,7 +193,6 @@ def process_elb_output(
             {
                 "region": region,
                 "resource_name": lb_name,
-                "resource_family": "elb",
                 "resource_type": f"elbv2:load_balancer_{lb_type}",
                 "resource_id": "N/A",  # AWS api does not return id
                 "resource_arn": lb_arn,
@@ -209,7 +209,6 @@ def process_elb_output(
             {
                 "region": region,
                 "resource_name": f"{protocol}:{port}",
-                "resource_family": "elb",
                 "resource_type": "elbv2:listener",
                 "resource_id": "N/A",  # AWS api does not return id
                 "resource_arn": listener_arn,
@@ -225,7 +224,6 @@ def process_elb_output(
             {
                 "region": region,
                 "resource_name": f"Rule-{priority}",
-                "resource_family": "elb",
                 "resource_type": "elbv2:listener_rule",
                 "resource_id": "N/A",  # AWS api does not return id
                 "resource_arn": rule_arn,
@@ -241,7 +239,6 @@ def process_elb_output(
             {
                 "region": region,
                 "resource_name": tg_name,
-                "resource_family": "elb",
                 "resource_type": "elbv2:target_group",
                 "resource_id": "N/A",  # AWS api does not return id
                 "resource_arn": tg_arn,

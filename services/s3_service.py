@@ -3,6 +3,7 @@ S3 Service Scanner
 -----------------
 
 Handles scanning of S3 resources including buckets.
+? Documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html
 """
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -126,7 +127,6 @@ def process_s3_output(
             {
                 "region": region,
                 "resource_name": bucket_name,
-                "resource_family": "s3",
                 "resource_type": "s3:bucket",
                 "resource_id": bucket_name,
                 "resource_arn": f"arn:aws:s3:::{bucket_name}",

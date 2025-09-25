@@ -4,6 +4,8 @@ EC2 Service Scanner
 
 Handles scanning of EC2 resources including instances, volumes, security groups, AMIs, and snapshots.
 Prioritizes Resource Groups Tagging API for efficient server-side filtering when tags are available.
+? Documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html
+
 """
 
 from concurrent.futures import ThreadPoolExecutor
@@ -222,7 +224,6 @@ def process_ec2_output(
             {
                 "region": region,
                 "resource_name": volume_name,
-                "resource_family": "ec2",
                 "resource_type": "ec2:volume",
                 "resource_id": volume_id,
                 "resource_arn": "N/A",  # Volumes don't have ARNs in AWS API
@@ -238,7 +239,6 @@ def process_ec2_output(
             {
                 "region": region,
                 "resource_name": sg_name,
-                "resource_family": "ec2",
                 "resource_type": "ec2:security_group",
                 "resource_id": sg_id,
                 "resource_arn": "N/A",  # Security groups don't have ARNs in AWS API
@@ -254,7 +254,6 @@ def process_ec2_output(
             {
                 "region": region,
                 "resource_name": ami_name,
-                "resource_family": "ec2",
                 "resource_type": "ec2:ami",
                 "resource_id": ami_id,
                 "resource_arn": "N/A",  # AMIs don't have ARNs in AWS API
@@ -270,7 +269,6 @@ def process_ec2_output(
             {
                 "region": region,
                 "resource_name": snapshot_name,
-                "resource_family": "ec2",
                 "resource_type": "ec2:snapshot",
                 "resource_id": snapshot_id,
                 "resource_arn": "N/A",  # Snapshots don't have ARNs in AWS API

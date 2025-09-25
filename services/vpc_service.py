@@ -5,6 +5,8 @@ VPC Service Scanner
 Handles scanning of VPC resources including VPCs, subnets, NAT gateways, internet gateways,
 route tables, DHCP options, VPC peering connections, and VPC endpoints.
 Prioritizes Resource Groups Tagging API for efficient server-side filtering when tags are available.
+? Documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html
+
 """
 
 from concurrent.futures import ThreadPoolExecutor
@@ -244,7 +246,6 @@ def process_vpc_output(
             {
                 "region": region,
                 "resource_name": f"VPC-{cidr_block}",
-                "resource_family": "vpc",
                 "resource_type": "vpc",
                 "resource_id": vpc_id,
                 "resource_arn": "N/A",  # VPCs don't have ARNs in AWS API
@@ -262,7 +263,6 @@ def process_vpc_output(
             {
                 "region": region,
                 "resource_name": f"Subnet-{cidr_block}",
-                "resource_family": "vpc",
                 "resource_type": "vpc:subnet",
                 "resource_id": subnet_id,
                 "resource_arn": subnet_arn,  # Use actual ARN from describe_subnets API
@@ -277,7 +277,6 @@ def process_vpc_output(
             {
                 "region": region,
                 "resource_name": nat_gw_id,
-                "resource_family": "vpc",
                 "resource_type": "vpc:nat_gateway",
                 "resource_id": nat_gw_id,
                 "resource_arn": "N/A",  # NAT Gateways don't have ARNs in AWS API
@@ -292,7 +291,6 @@ def process_vpc_output(
             {
                 "region": region,
                 "resource_name": igw_id,
-                "resource_family": "vpc",
                 "resource_type": "vpc:internet_gateway",
                 "resource_id": igw_id,
                 "resource_arn": "N/A",  # Internet Gateways don't have ARNs in AWS API
@@ -307,7 +305,6 @@ def process_vpc_output(
             {
                 "region": region,
                 "resource_name": rt_id,
-                "resource_family": "vpc",
                 "resource_type": "vpc:route_table",
                 "resource_id": rt_id,
                 "resource_arn": "N/A",  # Route Tables don't have ARNs in AWS API
@@ -322,7 +319,6 @@ def process_vpc_output(
             {
                 "region": region,
                 "resource_name": dhcp_id,
-                "resource_family": "vpc",
                 "resource_type": "vpc:dhcp_options",
                 "resource_id": dhcp_id,
                 "resource_arn": "N/A",  # DHCP Options don't have ARNs in AWS API
@@ -337,7 +333,6 @@ def process_vpc_output(
             {
                 "region": region,
                 "resource_name": peering_id,
-                "resource_family": "vpc",
                 "resource_type": "vpc:peering_connection",
                 "resource_id": peering_id,
                 "resource_arn": "N/A",  # VPC Peering Connections don't have ARNs in AWS API
@@ -353,7 +348,6 @@ def process_vpc_output(
             {
                 "region": region,
                 "resource_name": f"{endpoint_id}-{service_name.split('.')[-1] if service_name != 'N/A' else 'unknown'}",
-                "resource_family": "vpc",
                 "resource_type": "vpc:endpoint",
                 "resource_id": endpoint_id,
                 "resource_arn": "N/A",  # VPC Endpoints don't have ARNs in AWS API
