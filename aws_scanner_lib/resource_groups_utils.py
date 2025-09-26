@@ -5,7 +5,8 @@ Resource Groups Tagging API Utility
 Centralized utility for using AWS Resource Groups Tagging API to efficiently
 find resources by tags across all AWS services. This provides server-side
 filtering that dramatically improves performance compared to client-side filtering.
-Supported Services: https://docs.aws.amazon.com/ARG/latest/userguide/supported-resources.html
+? Supported Services: https://docs.aws.amazon.com/ARG/latest/userguide/supported-resources.html
+? Documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resourcegroupstaggingapi.html
 
 """
 
