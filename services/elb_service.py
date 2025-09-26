@@ -3,9 +3,11 @@ ELB Service Scanner
 ------------------
 
 Handles scanning of ELB resources including load balancers, listeners, rules, and target groups.
+?Documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elbv2.html
+
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import botocore
 from rich.console import Console
@@ -16,10 +18,8 @@ console = Console()
 def scan_elb(
     session: Any,
     region: str,
-    tag_key: Optional[str] = None,
-    tag_value: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Scan ELB resources in the specified region with optimized API filtering and pagination."""
+    """Scan all ELB resources in the specified region without tag filtering."""
     elbv2_client = session.client("elbv2", region_name=region)
     result = {}
     try:
@@ -31,35 +31,20 @@ def scan_elb(
         for page in page_iterator:
             load_balancers.extend(page["LoadBalancers"])
 
-        # Filter load balancers by tags (ELB doesn't support server-side tag filtering)
-        filtered_load_balancers = []
+        # Get all load balancers with their tags (no filtering)
         for lb in load_balancers:
             lb_arn = lb["LoadBalancerArn"]
             try:
                 tags_response = elbv2_client.describe_tags(ResourceArns=[lb_arn])
                 tag_descriptions = tags_response.get("TagDescriptions", [])
-
-                if tag_descriptions:
-                    tags = tag_descriptions[0].get("Tags", [])
-
-                    if tag_key and tag_value:
-                        if any(
-                            t["Key"] == tag_key and t["Value"] == tag_value
-                            for t in tags
-                        ):
-                            lb["Tags"] = tags
-                            filtered_load_balancers.append(lb)
-                    else:
-                        lb["Tags"] = tags
-                        filtered_load_balancers.append(lb)
-                elif not tag_key and not tag_value:
-                    lb["Tags"] = []
-                    filtered_load_balancers.append(lb)
-
+                lb["Tags"] = (
+                    tag_descriptions[0].get("Tags", []) if tag_descriptions else []
+                )
             except botocore.exceptions.ClientError as e:
                 console.print(
                     f"[yellow]Could not get tags for load balancer {lb_arn}: {e}[/yellow]"
                 )
+                lb["Tags"] = []
 
         # Target Groups with pagination
         target_groups = []
@@ -74,39 +59,24 @@ def scan_elb(
             target_groups_response = elbv2_client.describe_target_groups()
             target_groups = target_groups_response.get("TargetGroups", [])
 
-        # Filter target groups by tags
-        filtered_target_groups = []
+        # Get all target groups with their tags (no filtering)
         for tg in target_groups:
             tg_arn = tg["TargetGroupArn"]
             try:
                 tags_response = elbv2_client.describe_tags(ResourceArns=[tg_arn])
                 tag_descriptions = tags_response.get("TagDescriptions", [])
-
-                if tag_descriptions:
-                    tags = tag_descriptions[0].get("Tags", [])
-
-                    if tag_key and tag_value:
-                        if any(
-                            t["Key"] == tag_key and t["Value"] == tag_value
-                            for t in tags
-                        ):
-                            tg["Tags"] = tags
-                            filtered_target_groups.append(tg)
-                    else:
-                        tg["Tags"] = tags
-                        filtered_target_groups.append(tg)
-                elif not tag_key and not tag_value:
-                    tg["Tags"] = []
-                    filtered_target_groups.append(tg)
-
+                tg["Tags"] = (
+                    tag_descriptions[0].get("Tags", []) if tag_descriptions else []
+                )
             except botocore.exceptions.ClientError as e:
                 console.print(
                     f"[yellow]Could not get tags for target group {tg_arn}: {e}[/yellow]"
                 )
+                tg["Tags"] = []
 
-        # Listeners (get listeners for filtered load balancers)
+        # Listeners (get listeners for all load balancers)
         listeners = []
-        for lb in filtered_load_balancers:
+        for lb in load_balancers:
             try:
                 paginator = elbv2_client.get_paginator("describe_listeners")
                 page_iterator = paginator.paginate(
@@ -156,14 +126,14 @@ def scan_elb(
                         f"[yellow]Could not get rules for {listener['ListenerArn']}: {e}[/yellow]"
                     )
 
-        result["load_balancers"] = filtered_load_balancers
-        result["target_groups"] = filtered_target_groups
+        result["load_balancers"] = load_balancers
+        result["target_groups"] = target_groups
         result["listeners"] = listeners
         result["rules"] = rules
 
         # Listeners
         filtered_listeners = []
-        for lb in filtered_load_balancers:
+        for lb in load_balancers:
             lb_arn = lb["LoadBalancerArn"]
             try:
                 listeners_response = elbv2_client.describe_listeners(
@@ -223,9 +193,8 @@ def process_elb_output(
             {
                 "region": region,
                 "resource_name": lb_name,
-                "resource_family": "elb",
-                "resource_type": f"load_balancer_{lb_type}",
-                "resource_id": lb_arn.split("/")[-1] if lb_arn != "N/A" else "N/A",
+                "resource_type": f"elbv2:load_balancer_{lb_type}",
+                "resource_id": "N/A",  # AWS api does not return id
                 "resource_arn": lb_arn,
             }
         )
@@ -240,11 +209,8 @@ def process_elb_output(
             {
                 "region": region,
                 "resource_name": f"{protocol}:{port}",
-                "resource_family": "elb",
-                "resource_type": "listener",
-                "resource_id": (
-                    listener_arn.split("/")[-1] if listener_arn != "N/A" else "N/A"
-                ),
+                "resource_type": "elbv2:listener",
+                "resource_id": "N/A",  # AWS api does not return id
                 "resource_arn": listener_arn,
             }
         )
@@ -258,9 +224,8 @@ def process_elb_output(
             {
                 "region": region,
                 "resource_name": f"Rule-{priority}",
-                "resource_family": "elb",
-                "resource_type": "listener_rule",
-                "resource_id": rule_arn.split("/")[-1] if rule_arn != "N/A" else "N/A",
+                "resource_type": "elbv2:listener_rule",
+                "resource_id": "N/A",  # AWS api does not return id
                 "resource_arn": rule_arn,
             }
         )
@@ -274,9 +239,8 @@ def process_elb_output(
             {
                 "region": region,
                 "resource_name": tg_name,
-                "resource_family": "elb",
-                "resource_type": "target_group",
-                "resource_id": tg_arn.split("/")[-1] if tg_arn != "N/A" else "N/A",
+                "resource_type": "elbv2:target_group",
+                "resource_id": "N/A",  # AWS api does not return id
                 "resource_arn": tg_arn,
             }
         )

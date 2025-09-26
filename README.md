@@ -113,105 +113,104 @@ pre-commit install --install-hooks
 ### Basic Commands
 
 ```bash
-# Display help and available options
-poetry run python aws-scanner --help
+# Display help and available commands
+poetry run aws-scanner --help
+
+# Display scan command help and options
+poetry run aws-scanner scan --help
 
 # Basic scan with default settings (all supported services, EU & US regions)
-poetry run python aws-scanner -global
+poetry run aws-scanner scan --regions us-east-1,eu-west-1,eu-central-1,us-west-2
 
 # Scan specific services
-poetry run python aws-scanner --service ec2
+poetry run aws-scanner scan --service ec2
 
 # Scan specific regions
-poetry run python aws-scanner --regions us-east-1,eu-west-1
+poetry run aws-scanner scan --regions us-east-1,eu-west-1
 ```
 
 ### Service-Specific Scanning
 
 ```bash
 # Scan only EC2 resources
-poetry run python aws-scanner --service ec2
+poetry run aws-scanner scan --service ec2
 
 # Scan ECS and VPC resources
-poetry run python aws-scanner --service ecs
+poetry run aws-scanner scan --service ecs
 
 # Scan all services in specific regions
-poetry run python aws-scanner --regions us-east-1,us-west-2
+poetry run aws-scanner scan --regions us-east-1,us-west-2
 
 # Combine service and region filtering
-poetry run python aws-scanner --service ec2 --regions eu-central-1,eu-west-1
+poetry run aws-scanner scan --service ec2 --regions eu-central-1,eu-west-1
 ```
 
 ### Tag-Based Filtering
 
 ```bash
 # Filter by environment tag
-poetry run python aws-scanner --tag-key Environment --tag-value Production
+poetry run aws-scanner scan --tag-key Environment --tag-value Production
 
 # Filter by application tag
-poetry run python aws-scanner --tag-key app --tag-value web-server
-
-# Combine tag filtering with specific services
-poetry run python aws-scanner --service ec2 --tag-key Team --tag-value DevOps
+poetry run aws-scanner scan --tag-key app --tag-value web-server
 
 # Filter by cost center in specific regions
-poetry run python aws-scanner --regions us-east-1 --tag-key CostCenter --tag-value Engineering
+poetry run aws-scanner scan --regions us-east-1 --tag-key CostCenter --tag-value Engineering
 ```
 
 ### Output Formats
 
 ```bash
 # Default table format (human-readable)
-poetry run python aws-scanner --format table
+poetry run aws-scanner scan --format table
 
 # JSON format for programmatic processing
-poetry run python aws-scanner --format json --output results.json
+poetry run aws-scanner scan --format json --output results.json
 
 # Markdown format for documentation
-poetry run python aws-scanner --format md --output report.md
+poetry run aws-scanner scan --format md --output report.md
 
 # Export filtered results to JSON
-poetry run python aws-scanner --tag-key Environment --tag-value Production --format json --output prod-resources.json
+poetry run aws-scanner scan --tag-key Environment --tag-value Production --format json --output prod-resources.json
 ```
 
 ### Advanced Options
 
 ```bash
 # Dry run (preview without execution)
-poetry run python aws-scanner --dry-run --service ec2
+poetry run aws-scanner scan --dry-run --service ec2
 
 # Disable caching for fresh data
-poetry run python aws-scanner --no-cache
+poetry run aws-scanner scan --no-cache
 
 # Configure worker threads for performance
-poetry run python aws-scanner --max-workers 10 --service-workers 6
+poetry run aws-scanner scan --max-workers 10 --service-workers 6
 
 # Compare with existing results
-poetry run python aws-scanner --compare --output current-scan.json
+poetry run aws-scanner scan --compare --output current-scan.json
 ```
 
 ### Real-World Examples
 
 ```bash
 # Production infrastructure audit
-poetry run python aws-scanner\
+poetry run aws-scanner scan \
     --tag-key Environment --tag-value Production \
     --format json --output production-audit.json
 
 # Regional compliance check
-poetry run python aws-scanner\
+poetry run aws-scanner scan \
     --regions eu-west-1,eu-central-1 \
-    --service ec2,s3,vpc \
+    --service ec2 \
     --format md --output eu-compliance-report.md
 
 # Application-specific resource inventory
-poetry run python aws-scanner\
+poetry run aws-scanner scan \
     --tag-key Application --tag-value MyApp \
-    --service ec2,ecs,elb \
     --format table
 
 # Development environment scan
-poetry run python aws-scanner\
+poetry run aws-scanner scan \
     --regions us-west-2 \
     --tag-key Environment --tag-value Development \
     --no-cache
@@ -242,23 +241,24 @@ aws sts get-caller-identity
 
 ```
 aws-resource-scanner/
-├── aws_scanner.py              # Main CLI application
-├── aws-scanner                 # Global command wrapper
-├── setup.sh                    # Automated setup script
-├── run_quick_tests.sh          # Test verification script
-├── pyproject.toml              # Project configuration
-├── services/                   # Service-specific scanners
-│   ├── ec2_service.py          # EC2 resource scanner
-│   ├── s3_service.py           # S3 resource scanner
-│   ├── ecs_service.py          # ECS resource scanner
-│   ├── vpc_service.py          # VPC resource scanner
-│   ├── autoscaling_service.py  # Auto Scaling scanner
-│   └── elb_service.py          # Load Balancer scanner
-├── aws_scanner_lib/            # Core library modules
-│   ├── cache.py                # Caching functionality
-│   ├── outputs.py              # Output formatting
-│   └── scan.py                 # Core scanning logic
-└── tests/                      # Test suite
+├── aws_scanner.py               # AWS main entrypoint.
+├── cli.py                       # Main CLI application
+├── setup.sh                     # Automated setup script
+├── run_quick_tests.sh           # Test verification script
+├── pyproject.toml               # Project configuration
+├── services/                    # Service-specific scanners
+│   ├── ec2_service.py           # EC2 resource scanner
+│   ├── s3_service.py            # S3 resource scanner
+│   ├── ecs_service.py           # ECS resource scanner
+│   ├── vpc_service.py           # VPC resource scanner
+│   ├── autoscaling_service.py   # Auto Scaling scanner
+│   └── elb_service.py           # Load Balancer scanner
+├── aws_scanner_lib/             # Core library modules
+│   ├── cache.py                 # Caching functionality
+│   ├── outputs.py               # Output formatting
+│   ├── resource_groups_utils.py # resourceGroupTaggingApi scan when tags are used
+│   └── scan.py                  # Core scanning logic
+└── tests/                       # Test suite
 ```
 
 ## 🧪 **Testing**
@@ -304,7 +304,7 @@ For detailed debugging information:
 ls /tmp/aws_resource_scanner/
 
 # Dry run to verify configuration
-poetry run python aws-scanner --dry-run
+poetry run aws-scanner --dry-run
 ```
 
 ## 🤝 **Contributing**

@@ -4,13 +4,18 @@ VPC Service Scanner
 
 Handles scanning of VPC resources including VPCs, subnets, NAT gateways, internet gateways,
 route tables, DHCP options, VPC peering connections, and VPC endpoints.
+Prioritizes Resource Groups Tagging API for efficient server-side filtering when tags are available.
+? Documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html
+
 """
 
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from botocore.exceptions import BotoCoreError, ClientError
 from rich.console import Console  # pyright: ignore[reportMissingImports]
+
+# Resource Groups API utilities removed - service-agnostic approach handled at main scanner level
 
 console = Console()
 
@@ -103,23 +108,12 @@ def _scan_route_tables_parallel(
     return route_tables
 
 
-def _scan_dhcp_options_parallel(
-    ec2_client: Any, tag_key: Optional[str], tag_value: Optional[str]
-) -> List[Dict[str, Any]]:
-    """Scan DHCP options in parallel with client-side filtering."""
+def _scan_dhcp_options_parallel(ec2_client: Any) -> List[Dict[str, Any]]:
+    """Scan DHCP options without tag filtering."""
     dhcp_options = []
     try:
         response = ec2_client.describe_dhcp_options()
-        for dhcp_option in response["DhcpOptions"]:
-            if (
-                not tag_key
-                or not tag_value
-                or any(
-                    t.get("Key") == tag_key and t.get("Value") == tag_value
-                    for t in dhcp_option.get("Tags", [])
-                )
-            ):
-                dhcp_options.append(dhcp_option)
+        dhcp_options.extend(response["DhcpOptions"])
     except (ClientError, BotoCoreError):
         pass
     return dhcp_options
@@ -128,19 +122,21 @@ def _scan_dhcp_options_parallel(
 def scan_vpc(
     session: Any,
     region: str,
-    tag_key: Optional[str] = None,
-    tag_value: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Scan VPC resources in the specified region using parallel processing."""
-    ec2_client = session.client("ec2", region_name=region)
-    result = {}
+    """
+    Scan all VPC resources using describe APIs without tag filtering.
 
-    # Build AWS API filters for tag filtering
-    filters = []
-    if tag_key and tag_value:
-        filters.append({"Name": f"tag:{tag_key}", "Values": [tag_value]})
+    Tag-based filtering is handled by the Resource Groups API at the main scanner level.
+    """
+    console.print(f"[blue]Scanning VPC resources in {region}[/blue]")
+
+    result = {}
+    ec2_client = session.client("ec2", region_name=region)
 
     try:
+        # No tag filtering - use traditional approach with API-level filters
+        filters: List[Dict[str, Any]] = []
+
         # Use ThreadPoolExecutor to parallelize VPC resource scanning
         with ThreadPoolExecutor(max_workers=VPC_MAX_WORKERS) as executor:
             # Submit core resource tasks that support API-level filtering
@@ -154,111 +150,80 @@ def scan_vpc(
             route_tables_future = executor.submit(
                 _scan_route_tables_parallel, ec2_client, filters
             )
-
             # Submit tasks that need client-side filtering
             nat_gateways_future = executor.submit(
                 _scan_nat_gateways_parallel, ec2_client, []
             )
             dhcp_options_future = executor.submit(
-                _scan_dhcp_options_parallel, ec2_client, tag_key, tag_value
+                _scan_dhcp_options_parallel, ec2_client
             )
 
-            # Collect results with error handling
-            try:
-                result["vpcs"] = vpcs_future.result()
-            except (ClientError, BotoCoreError) as e:
-                console.print(
-                    f"[yellow]Warning: Failed to scan VPCs in {region}: {str(e)}[/yellow]"
-                )
-                result["vpcs"] = []
+        # Collect results with error handling (works for both Resource Groups API and traditional approaches)
+        try:
+            result["vpcs"] = vpcs_future.result()
+        except (ClientError, BotoCoreError) as e:
+            console.print(
+                f"[yellow]Warning: Failed to scan VPCs in {region}: {str(e)}[/yellow]"
+            )
+            result["vpcs"] = []
 
-            try:
-                result["subnets"] = subnets_future.result()
-            except (ClientError, BotoCoreError) as e:
-                console.print(
-                    f"[yellow]Warning: Failed to scan subnets in {region}: {str(e)}[/yellow]"
-                )
-                result["subnets"] = []
+        try:
+            result["subnets"] = subnets_future.result()
+        except (ClientError, BotoCoreError) as e:
+            console.print(
+                f"[yellow]Warning: Failed to scan subnets in {region}: {str(e)}[/yellow]"
+            )
+            result["subnets"] = []
 
-            try:
-                result["internet_gateways"] = igws_future.result()
-            except (ClientError, BotoCoreError) as e:
-                console.print(
-                    f"[yellow]Warning: Failed to scan internet gateways in {region}: {str(e)}[/yellow]"
-                )
-                result["internet_gateways"] = []
+        try:
+            result["internet_gateways"] = igws_future.result()
+        except (ClientError, BotoCoreError) as e:
+            console.print(
+                f"[yellow]Warning: Failed to scan internet gateways in {region}: {str(e)}[/yellow]"
+            )
+            result["internet_gateways"] = []
 
-            try:
-                result["route_tables"] = route_tables_future.result()
-            except (ClientError, BotoCoreError) as e:
-                console.print(
-                    f"[yellow]Warning: Failed to scan route tables in {region}: {str(e)}[/yellow]"
-                )
-                result["route_tables"] = []
+        try:
+            result["route_tables"] = route_tables_future.result()
+        except (ClientError, BotoCoreError) as e:
+            console.print(
+                f"[yellow]Warning: Failed to scan route tables in {region}: {str(e)}[/yellow]"
+            )
+            result["route_tables"] = []
 
-            try:
-                # Filter NAT gateways client-side for tags if needed
-                nat_gateways = nat_gateways_future.result()
-                if tag_key and tag_value:
-                    filtered_nat_gateways = []
-                    for nat_gw in nat_gateways:
-                        if any(
-                            t.get("Key") == tag_key and t.get("Value") == tag_value
-                            for t in nat_gw.get("Tags", [])
-                        ):
-                            filtered_nat_gateways.append(nat_gw)
-                    result["nat_gateways"] = filtered_nat_gateways
-                else:
-                    result["nat_gateways"] = nat_gateways
-            except (ClientError, BotoCoreError) as e:
-                console.print(
-                    f"[yellow]Warning: Failed to scan NAT gateways in {region}: {str(e)}[/yellow]"
-                )
-                result["nat_gateways"] = []
+        try:
+            result["nat_gateways"] = nat_gateways_future.result()
+        except (ClientError, BotoCoreError) as e:
+            console.print(
+                f"[yellow]Warning: Failed to scan NAT gateways in {region}: {str(e)}[/yellow]"
+            )
+            result["nat_gateways"] = []
 
-            try:
-                result["dhcp_options"] = dhcp_options_future.result()
-            except (ClientError, BotoCoreError) as e:
-                console.print(
-                    f"[yellow]Warning: Failed to scan DHCP options in {region}: {str(e)}[/yellow]"
-                )
-                result["dhcp_options"] = []
+        try:
+            result["dhcp_options"] = dhcp_options_future.result()
+        except (ClientError, BotoCoreError) as e:
+            console.print(
+                f"[yellow]Warning: Failed to scan DHCP options in {region}: {str(e)}[/yellow]"
+            )
+            result["dhcp_options"] = []
 
         # Handle remaining resources sequentially (lower priority/frequency)
         result["vpc_peering_connections"] = []
         result["vpc_endpoints"] = []
 
-        # VPC Peering Connections (client-side filtering)
+        # VPC Peering Connections (no tag filtering)
         try:
             paginator = ec2_client.get_paginator("describe_vpc_peering_connections")
             for page in paginator.paginate():
-                for peering_conn in page["VpcPeeringConnections"]:
-                    if (
-                        not tag_key
-                        or not tag_value
-                        or any(
-                            t.get("Key") == tag_key and t.get("Value") == tag_value
-                            for t in peering_conn.get("Tags", [])
-                        )
-                    ):
-                        result["vpc_peering_connections"].append(peering_conn)
+                result["vpc_peering_connections"].extend(page["VpcPeeringConnections"])
         except (ClientError, BotoCoreError):
             pass
 
-        # VPC Endpoints (client-side filtering)
+        # VPC Endpoints (no tag filtering)
         try:
             paginator = ec2_client.get_paginator("describe_vpc_endpoints")
             for page in paginator.paginate():
-                for endpoint in page["VpcEndpoints"]:
-                    if (
-                        not tag_key
-                        or not tag_value
-                        or any(
-                            t.get("Key") == tag_key and t.get("Value") == tag_value
-                            for t in endpoint.get("Tags", [])
-                        )
-                    ):
-                        result["vpc_endpoints"].append(endpoint)
+                result["vpc_endpoints"].extend(page["VpcEndpoints"])
         except (ClientError, BotoCoreError):
             pass
 
@@ -281,10 +246,9 @@ def process_vpc_output(
             {
                 "region": region,
                 "resource_name": f"VPC-{cidr_block}",
-                "resource_family": "vpc",
                 "resource_type": "vpc",
                 "resource_id": vpc_id,
-                "resource_arn": f"arn:aws:ec2:{region}:*:vpc/{vpc_id}",
+                "resource_arn": "N/A",  # VPCs don't have ARNs in AWS API
             }
         )
 
@@ -292,15 +256,16 @@ def process_vpc_output(
     for subnet in service_data.get("subnets", []):
         subnet_id = subnet.get("SubnetId", "N/A")
         cidr_block = subnet.get("CidrBlock", "N/A")
+        # Use actual subnet ARN from API response
+        subnet_arn = subnet.get("SubnetArn", "N/A")
 
         flattened_resources.append(
             {
                 "region": region,
                 "resource_name": f"Subnet-{cidr_block}",
-                "resource_family": "vpc",
-                "resource_type": "subnet",
+                "resource_type": "vpc:subnet",
                 "resource_id": subnet_id,
-                "resource_arn": f"arn:aws:ec2:{region}:*:subnet/{subnet_id}",
+                "resource_arn": subnet_arn,  # Use actual ARN from describe_subnets API
             }
         )
 
@@ -312,10 +277,9 @@ def process_vpc_output(
             {
                 "region": region,
                 "resource_name": nat_gw_id,
-                "resource_family": "vpc",
-                "resource_type": "nat_gateway",
+                "resource_type": "vpc:nat_gateway",
                 "resource_id": nat_gw_id,
-                "resource_arn": f"arn:aws:ec2:{region}:*:nat-gateway/{nat_gw_id}",
+                "resource_arn": "N/A",  # NAT Gateways don't have ARNs in AWS API
             }
         )
 
@@ -327,10 +291,9 @@ def process_vpc_output(
             {
                 "region": region,
                 "resource_name": igw_id,
-                "resource_family": "vpc",
-                "resource_type": "internet_gateway",
+                "resource_type": "vpc:internet_gateway",
                 "resource_id": igw_id,
-                "resource_arn": f"arn:aws:ec2:{region}:*:internet-gateway/{igw_id}",
+                "resource_arn": "N/A",  # Internet Gateways don't have ARNs in AWS API
             }
         )
 
@@ -342,10 +305,9 @@ def process_vpc_output(
             {
                 "region": region,
                 "resource_name": rt_id,
-                "resource_family": "vpc",
-                "resource_type": "route_table",
+                "resource_type": "vpc:route_table",
                 "resource_id": rt_id,
-                "resource_arn": f"arn:aws:ec2:{region}:*:route-table/{rt_id}",
+                "resource_arn": "N/A",  # Route Tables don't have ARNs in AWS API
             }
         )
 
@@ -357,10 +319,9 @@ def process_vpc_output(
             {
                 "region": region,
                 "resource_name": dhcp_id,
-                "resource_family": "vpc",
-                "resource_type": "dhcp_options",
+                "resource_type": "vpc:dhcp_options",
                 "resource_id": dhcp_id,
-                "resource_arn": f"arn:aws:ec2:{region}:*:dhcp-options/{dhcp_id}",
+                "resource_arn": "N/A",  # DHCP Options don't have ARNs in AWS API
             }
         )
 
@@ -372,10 +333,9 @@ def process_vpc_output(
             {
                 "region": region,
                 "resource_name": peering_id,
-                "resource_family": "vpc",
-                "resource_type": "peering_connection",
+                "resource_type": "vpc:peering_connection",
                 "resource_id": peering_id,
-                "resource_arn": f"arn:aws:ec2:{region}:*:vpc-peering-connection/{peering_id}",
+                "resource_arn": "N/A",  # VPC Peering Connections don't have ARNs in AWS API
             }
         )
 
@@ -388,9 +348,8 @@ def process_vpc_output(
             {
                 "region": region,
                 "resource_name": f"{endpoint_id}-{service_name.split('.')[-1] if service_name != 'N/A' else 'unknown'}",
-                "resource_family": "vpc",
-                "resource_type": "endpoint",
+                "resource_type": "vpc:endpoint",
                 "resource_id": endpoint_id,
-                "resource_arn": f"arn:aws:ec2:{region}:*:vpc-endpoint/{endpoint_id}",
+                "resource_arn": "N/A",  # VPC Endpoints don't have ARNs in AWS API
             }
         )
