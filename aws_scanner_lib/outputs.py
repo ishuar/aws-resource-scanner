@@ -22,10 +22,40 @@ from services import (
     process_vpc_output,
 )
 
-# Import service output processors inside functions to avoid circular imports
-# from services import (...)
-
 console = Console()
+# Minimum width for tables to ensure readability
+TABLE_MINIMUM_WIDTH = 86
+
+
+def create_aws_resources_table(flattened_resources: List[Dict[str, Any]]) -> Table:
+    """
+    Create a standardized AWS resources table with consistent formatting.
+
+    Args:
+        flattened_resources: List of resource dictionaries with standardized format
+
+    Returns:
+        Table: Rich Table object ready for display
+    """
+    table = Table(
+        title="AWS Resources", min_width=TABLE_MINIMUM_WIDTH, border_style="bright_blue"
+    )
+    table.add_column("Region", style="blue")
+    table.add_column("Resource Type", style="yellow")
+    table.add_column("Resource ID", style="green")
+    table.add_column("Resource ARN", style="white")
+
+    for resource in flattened_resources:
+
+        table.add_row(
+            resource.get("region", "N/A"),
+            # Use unified resource_type format (service:type)
+            resource.get("resource_type", "N/A"),
+            resource.get("resource_id", "N/A"),
+            resource.get("resource_arn", "N/A"),
+        )
+
+    return table
 
 
 def ensure_output_directory(output_file: Path) -> None:
@@ -169,43 +199,6 @@ def process_generic_service_output(
                     flattened_resources.append(flattened_resource)
 
 
-def _extract_resource_name_from_arn_or_id(resource_arn: str, resource_id: str) -> str:
-    """
-    Extract a meaningful resource name from ARN or resource ID.
-
-    This provides best-effort extraction of human-readable resource names
-    for cross-service resources discovered via Resource Groups API.
-    """
-    if not resource_arn and not resource_id:
-        return "N/A"
-
-    # Try to extract name from ARN first
-    if resource_arn:
-        # Handle different ARN formats
-        if "/" in resource_arn:
-            # Format: arn:aws:service:region:account:resource-type/resource-name
-            name_part = resource_arn.split("/")[-1]
-            return name_part
-        elif ":" in resource_arn:
-            # Format: arn:aws:service:region:account:resource-type:resource-name
-            parts = resource_arn.split(":")
-            if len(parts) >= 6:
-                return parts[-1]
-
-    # Fall back to resource ID
-    if resource_id:
-        # For compound IDs like "app/my-app/abc123", extract the meaningful part
-        if "/" in resource_id:
-            parts = resource_id.split("/")
-            # Return the middle part if it looks like a name, otherwise the last part
-            if len(parts) >= 2 and not parts[1].startswith(("i-", "sg-", "vpc-")):
-                return parts[1]  # Extract application/resource name
-            return parts[-1]
-        return resource_id
-
-    return "N/A"
-
-
 def _is_resource_groups_api_data(service_data: Dict[str, Any]) -> bool:
     """
     Detect if service_data comes from Resource Groups API vs traditional service APIs.
@@ -244,7 +237,6 @@ def output_results(
     Returns:
         int: The total number of flattened resources found.
     """
-    # Import service output processors inside function to avoid circular imports
 
     # Flatten results into a list of resources with the required columns
     flattened_resources: List[Dict[str, Any]] = []
@@ -295,25 +287,8 @@ def output_results(
         # Also print to console for immediate viewing
         console.print(json.dumps(flattened_resources, indent=2))
     elif output_format == "table":
-        table = Table(title="AWS Resources")
-        table.add_column("Region", style="blue")
-        table.add_column(
-            "Resource Type", style="yellow"
-        )  # Simplified: service:type format
-        table.add_column("Resource ID", style="green")
-        table.add_column("Resource ARN", style="white")
-
-        for resource in flattened_resources:
-            # Use unified resource_type format (service:type)
-            resource_type = resource.get("resource_type", "N/A")
-
-            table.add_row(
-                resource.get("region", "N/A"),
-                resource_type,
-                resource.get("resource_id", "N/A"),
-                resource.get("resource_arn", "N/A"),
-            )
-
+        # Create and display the standardized table
+        table = create_aws_resources_table(flattened_resources)
         console.print(table)
 
         # Also save table data as JSON to file
@@ -332,22 +307,7 @@ def output_results(
 
         # Display the table view in terminal as well
         console.print("\n[bold blue]Resource Table View:[/bold blue]")
-        table = Table(title="AWS Resources")
-        table.add_column("Region", style="blue")
-        table.add_column("Resource Name", style="cyan")
-        table.add_column("Resource Type", style="yellow")
-        table.add_column("Resource ID", style="green")
-        table.add_column("Resource ARN", style="white")
-
-        for resource in flattened_resources:
-            table.add_row(
-                resource.get("region", "N/A"),
-                resource.get("resource_name", resource["resource_id"]),
-                resource["resource_type"],
-                resource["resource_id"],
-                resource["resource_arn"],
-            )
-
+        table = create_aws_resources_table(flattened_resources)
         console.print(table)
 
         # Also display a summary in console
@@ -368,7 +328,7 @@ def output_results(
 
     else:
         console.print(
-            f"[red]Unknown output format '{output_format}'. Supported: json, table, md[/red]"
+            f"[red]Unknown output format '{output_format}'. Supported: json, table, md or markdown[/red]"
         )
 
     return len(flattened_resources)

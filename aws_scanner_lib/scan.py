@@ -279,26 +279,6 @@ def scan_region(
             if progress_callback:
                 progress_callback(completed_services, total_services, service, region)
 
-    # Print grouped results for this region in clean tabular format
-    if service_results_summary:
-        # Calculate total resources
-        total_resources = sum(service_results_summary.values())
-
-        # Create clean tabular output
-        output_lines = [f"\n{region.upper()}:"]
-        output_lines.append("┌─────────────┬───────┐")
-        output_lines.append("│ Service     │ Count │")
-        output_lines.append("├─────────────┼───────┤")
-
-        for service, count in service_results_summary.items():
-            output_lines.append(f"│ {service.upper():<11} │ {count:>5} │")
-
-        output_lines.append("├─────────────┼───────┤")
-        output_lines.append(f"│ {'TOTAL':<11} │ {total_resources:>5} │")
-        output_lines.append("└─────────────┴───────┘")
-
-        print("\n".join(output_lines), file=__import__("sys").stderr, flush=True)
-
     # Calculate and display region scan time
     end_time = time.time()
     scan_duration = end_time - start_time

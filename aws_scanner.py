@@ -21,8 +21,13 @@ from botocore.exceptions import (
     ProfileNotFound,
     TokenRetrievalError,
 )
+from rich import box
 from rich.console import Console
+from rich.panel import Panel
 from rich.progress import Progress
+from rich.table import Table
+
+from aws_scanner_lib.outputs import TABLE_MINIMUM_WIDTH
 
 # Import modular components
 from aws_scanner_lib.scan import scan_region
@@ -176,11 +181,9 @@ def check_and_display_cache_status(
                     cached_items.append(f"{service} in {region}")
 
     if cached_items:
-        from rich.panel import Panel
-        from rich.table import Table
 
         # Create cache status table
-        cache_table = Table(show_header=False, box=None, width=80)
+        cache_table = Table(show_header=False, box=None, min_width=TABLE_MINIMUM_WIDTH)
         cache_table.add_column("", style="dim cyan", width=80)
 
         for item in cached_items:
@@ -189,11 +192,11 @@ def check_and_display_cache_status(
         console.print(
             Panel(
                 cache_table,
-                title="[bold cyan]💾 Cache Status[/bold cyan]",
+                title="[bold white]Cache Status[/bold white]",
                 title_align="center",
-                border_style="cyan",
+                border_style="bright_blue",
                 padding=(0, 1),
-                width=86,
+                width=TABLE_MINIMUM_WIDTH,
             )
         )
         console.print(
@@ -202,6 +205,67 @@ def check_and_display_cache_status(
         return True
 
     return False
+
+
+def display_region_summaries(all_results: Dict[str, Dict[str, Any]]) -> None:
+    """Display region-wise resource summaries after scanning is complete."""
+
+    if not all_results:
+        return
+
+    console.print()  # Add spacing
+
+    for region_name, region_results in all_results.items():
+        if not region_results:
+            continue
+
+        # Count resources by service
+        service_counts = {}
+        for service, service_data in region_results.items():
+            if isinstance(service_data, dict):
+                total_resources = sum(
+                    len(v) if isinstance(v, list) else 1 for v in service_data.values()
+                )
+                service_counts[service] = total_resources
+            else:
+                service_counts[service] = 1 if service_data else 0
+
+        if not service_counts or sum(service_counts.values()) == 0:
+            continue
+
+        # Create rich Table for clean display
+        total_resources = sum(service_counts.values())
+        results_table = Table(
+            show_header=True,
+            header_style="white",
+            border_style="bright_blue",
+            expand=False,
+            width=82,
+            box=box.SIMPLE_HEAVY,
+        )
+        results_table.add_column("Service", style="cyan")
+        results_table.add_column("Count", style="yellow", justify="right")
+
+        # Add service rows
+        for service, count in service_counts.items():
+            results_table.add_row(service.upper(), str(count))
+
+        # Add separator row
+        results_table.add_section()
+        results_table.add_row("TOTAL", str(total_resources), style="bold green")
+
+        # Display with Panel
+        console.print(
+            Panel(
+                results_table,
+                title=f"[bold white]{region_name.upper()}[/bold white]",
+                title_align="center",
+                border_style="bright_blue",
+                padding=(0, 1),
+                # Table width (34) + Panel padding (2*2)
+                width=TABLE_MINIMUM_WIDTH,
+            )
+        )
 
 
 def perform_scan(

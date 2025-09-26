@@ -33,13 +33,18 @@ from aws_scanner import (
     SUPPORTED_SERVICES,
     check_and_display_cache_status,
     display_banner,
+    display_region_summaries,
     get_session,
     perform_scan,
     validate_aws_credentials,
 )
 
 # Import core scanning functionality
-from aws_scanner_lib.outputs import compare_with_existing, output_results
+from aws_scanner_lib.outputs import (
+    TABLE_MINIMUM_WIDTH,
+    compare_with_existing,
+    output_results,
+)
 
 # Global shutdown flag for graceful exit
 shutdown_requested = threading.Event()
@@ -360,6 +365,9 @@ def scan_command(
             if not refresh:
                 return
         else:
+            # Display region summaries after scanning is complete
+            display_region_summaries(all_results)
+
             # Process results
             current_output_file = _generate_output_filename(
                 output_file, tag_key, tag_value, region_list, services
@@ -421,52 +429,52 @@ def _display_configuration_panel(
 ) -> None:
     """Display the configuration panel."""
     # Create an elegant configuration panel with centered title
-    config_table = Table(show_header=False, box=None, width=80)
-    config_table.add_column("Parameter", style="bold cyan", width=18)
-    config_table.add_column("Value", style="bold yellow", width=60)
+    config_table = Table(show_header=False, box=None, min_width=TABLE_MINIMUM_WIDTH)
+    config_table.add_column("Parameter", style="cyan", width=18, highlight=True)
+    config_table.add_column("Value", style="yellow", width=60, highlight=True)
 
     # Auto-detect scanning mode for display
     use_resource_groups_api = all_services or (tag_key or tag_value)
 
     if use_resource_groups_api:
         if all_services:
-            config_table.add_row("🌐 Mode", "All AWS Services (100+ services)")
-            config_table.add_row("🔍 Discovery", "Resource Groups Tagging API")
+            config_table.add_row("Mode", "All AWS Services (100+ services)")
+            config_table.add_row("Discovery", "Resource Groups Tagging API")
         else:
-            config_table.add_row("🌐 Mode", "Cross-Service (Tag-based)")
-            config_table.add_row("🔍 Discovery", "Resource Groups Tagging API")
+            config_table.add_row("Mode", "Cross-Service (Tag-based)")
+            config_table.add_row("Discovery", "Resource Groups Tagging API")
     else:
-        config_table.add_row("🔧 Mode", "Service-Specific")
-        config_table.add_row("📋 Services", f"{', '.join(services)}")
+        config_table.add_row("Mode", "Service-Specific")
+        config_table.add_row("Services", f"{', '.join(services)}")
 
     config_table.add_row(
-        "⚡ Workers", f"{max_workers} regions × {service_workers} services"
+        "Workers", f"{max_workers} regions × {service_workers} services"
     )
-    config_table.add_row("💾 Caching", "✅ Enabled" if use_cache else "❌ Disabled")
+    config_table.add_row("Caching", "Enabled" if use_cache else "Disabled")
 
     if refresh:
-        config_table.add_row("🔄 Refresh", f"Every {refresh_interval}s")
+        config_table.add_row("Refresh", f"Every {refresh_interval}s")
 
     if tag_key and tag_value:
-        config_table.add_row("🏷️  Tag Filter", f"{tag_key}={tag_value}")
+        config_table.add_row("Tag Filter", f"{tag_key}={tag_value}")
     elif tag_key:
-        config_table.add_row("🏷️  Tag Filter", f"{tag_key}=*")
+        config_table.add_row("Tag Filter", f"{tag_key}=*")
 
-    config_table.add_row("📄 Output", output_format.upper())
+    config_table.add_row("Output", output_format.upper())
 
     # Add AWS Profile information
     aws_profile = os.environ.get("AWS_PROFILE", "default")
-    config_table.add_row("👤 AWS Profile", aws_profile)
+    config_table.add_row("AWS Profile 👤", aws_profile)
 
     # Center the title and create a more compact panel
     console.print(
         Panel(
             config_table,
-            title="[bold white]⚙️  Configuration[/bold white]",
+            title="[bold white]Configuration[/bold white]",
             title_align="center",
             border_style="bright_blue",
             padding=(0, 1),
-            width=86,
+            width=TABLE_MINIMUM_WIDTH,
         )
     )
 
@@ -488,7 +496,7 @@ def _handle_regions(regions: Optional[str]) -> List[str]:
     if not regions:
         region_list = default_europe_us_regions
         console.print(
-            "[dim yellow]ℹ️ No regions specified. Scanning all Europe and US regions.[/dim yellow]"
+            "[dim yellow]INFO: No regions specified. Scanning all Europe and US regions.\n[/dim yellow]"
         )
     else:
         region_list = [r.strip() for r in regions.split(",") if r.strip()]
@@ -505,7 +513,9 @@ def _display_regions_panel(region_list: List[str]) -> None:
         regions_display = "  ".join([f"{region}" for region in region_list])
     else:
         # Show regions in multiple columns for larger lists
-        regions_table = Table(show_header=False, box=None, width=80)
+        regions_table = Table(
+            show_header=False, box=None, min_width=TABLE_MINIMUM_WIDTH
+        )
         regions_table.add_column("", style="bold green", width=25)
         regions_table.add_column("", style="bold green", width=25)
         regions_table.add_column("", style="bold green", width=25)
@@ -528,11 +538,11 @@ def _display_regions_panel(region_list: List[str]) -> None:
     console.print(
         Panel(
             regions_display,
-            title=f"[bold white]📍 Target Regions ({len(region_list)})[/bold white]",
+            title=f"[bold white]Target Regions:({len(region_list)})[/bold white]",
             title_align="center",
-            border_style="bright_green",
+            border_style="bright_blue",
             padding=(0, 1),
-            width=86,
+            width=TABLE_MINIMUM_WIDTH,
         )
     )
 
