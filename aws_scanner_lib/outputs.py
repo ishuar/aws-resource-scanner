@@ -46,7 +46,6 @@ def create_aws_resources_table(flattened_resources: List[Dict[str, Any]]) -> Tab
     table.add_column("Resource ARN", style="white")
 
     for resource in flattened_resources:
-
         table.add_row(
             resource.get("region", "N/A"),
             # Use unified resource_type format (service:type)

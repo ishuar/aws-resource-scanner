@@ -181,7 +181,6 @@ def check_and_display_cache_status(
                     cached_items.append(f"{service} in {region}")
 
     if cached_items:
-
         # Create cache status table
         cache_table = Table(show_header=False, box=None, min_width=TABLE_MINIMUM_WIDTH)
         cache_table.add_column("", style="dim cyan", width=80)

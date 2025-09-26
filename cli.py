@@ -66,7 +66,7 @@ console = Console()
 
 
 @app.callback()
-def main(ctx: typer.Context) -> None:
+def main() -> None:
     """
     AWS Multi-Service Scanner
     A comprehensive tool for scanning AWS resources across multiple services and regions
@@ -83,7 +83,6 @@ def main(ctx: typer.Context) -> None:
 
     Use the 'scan' command to start scanning AWS resources.
     """
-    pass
 
 
 @app.command(name="scan")
@@ -152,7 +151,7 @@ def scan_command(
     """
     AWS Multi-Service Scanner
 
-    Scan multiple AWS services across regions with optional tag filtering.Use the 'scan' command to start scanning AWS resources.
+    Scan multiple AWS services across regions with optional tag filtering. Use the 'scan' command to start scanning AWS resources.
     """
     # Validate worker counts
     max_workers = max(1, min(max_workers, 20))  # Limit between 1-20
@@ -264,8 +263,6 @@ def scan_command(
                 else:
                     console.print("[red]❌ No cached results available.[/red]")
                     raise typer.Exit(1)
-            else:
-                raise typer.Exit(1)
         else:
             console.print(f"\n[green]{credential_message}[/green]")
 
