@@ -21,9 +21,9 @@ from aws_scanner_lib.logging import get_logger, get_output_console
 # Service logger
 logger = get_logger("vpc_service")
 
-output_console = (
-    get_output_console()
-)  # VPC operations can be parallelized for better performance
+output_console = get_output_console()
+
+# VPC operations can be parallelized for better performance
 VPC_MAX_WORKERS = 4  # Parallel workers for different resource types
 
 

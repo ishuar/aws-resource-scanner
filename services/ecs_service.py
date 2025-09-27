@@ -18,7 +18,6 @@ from aws_scanner_lib.logging import get_logger, get_output_console
 
 # Service logger
 logger = get_logger("ecs_service")
-console = get_output_console()
 
 # Separate console for user output to avoid interfering with logs and progress bars
 output_console = get_output_console()
@@ -48,7 +47,7 @@ def _process_task_definition_parallel(ecs_client: Any, task_def_arn: str) -> Any
             )
             tags = tags_response.get("tags", [])
         except ClientError as e:
-            console.print(
+            output_console.print(
                 f"[yellow]Could not get tags for task definition {full_task_def_arn}: {e}[/yellow]"
             )
             tags = []
@@ -57,7 +56,7 @@ def _process_task_definition_parallel(ecs_client: Any, task_def_arn: str) -> Any
         return task_def
 
     except ClientError as e:
-        console.print(
+        output_console.print(
             f"[yellow]Could not describe task definition {task_def_arn}: {e}[/yellow]"
         )
         return None
@@ -131,12 +130,12 @@ def scan_ecs(
                             services.append(service)
 
                     except ClientError as e:
-                        console.print(
+                        output_console.print(
                             f"[yellow]Could not describe services in cluster {cluster_name}: {e}[/yellow]"
                         )
 
             except ClientError as e:
-                console.print(
+                output_console.print(
                     f"[yellow]Could not list services in cluster {cluster_name}: {e}[/yellow]"
                 )
 
@@ -191,12 +190,12 @@ def scan_ecs(
                     task_def_arns.extend(latest_two)
 
                 except (ClientError, BotoCoreError) as e:
-                    console.print(
+                    output_console.print(
                         f"[yellow]Could not list task definitions for family {family}: {e}[/yellow]"
                     )
 
         except (ClientError, BotoCoreError) as e:
-            console.print(
+            output_console.print(
                 f"[yellow]Could not list task definition families: {e}[/yellow]"
             )
 
@@ -221,7 +220,7 @@ def scan_ecs(
                             task_definitions.append(result_task_def)
                     except (ClientError, BotoCoreError) as e:
                         task_def_arn = future_to_arn[future]
-                        console.print(
+                        output_console.print(
                             f"[yellow]Error processing task definition {task_def_arn}: {e}[/yellow]"
                         )
 
@@ -235,7 +234,7 @@ def scan_ecs(
                 capacity_providers = response.get("capacityProviders", [])
 
             except (ClientError, BotoCoreError) as e:
-                console.print(
+                output_console.print(
                     f"[yellow]Could not list capacity providers: {e}[/yellow]"
                 )
 
