@@ -40,19 +40,19 @@ from aws_scanner import (
     validate_aws_credentials,
 )
 
+# Import logging configuration
+from aws_scanner_lib.logging import (
+    DEFAULT_DEBUG_LOG_DIR,
+    configure_logging,
+    create_debug_log_file,
+    get_output_console,
+)
+
 # Import core scanning functionality
 from aws_scanner_lib.outputs import (
     TABLE_MINIMUM_WIDTH,
     compare_with_existing,
     output_results,
-)
-
-# Import logging configuration
-from aws_scanner_lib.logging import (
-    configure_logging,
-    create_debug_log_file,
-    get_output_console,
-    DEFAULT_DEBUG_LOG_DIR,
 )
 
 # Global AWS profile (module-level constant)
@@ -62,6 +62,7 @@ aws_profile = os.environ.get("AWS_PROFILE", "default")
 # Global shutdown flag for graceful exit
 shutdown_requested = threading.Event()
 # Track if shutdown message was already printed
+shutdown_printed = threading.Event()
 
 # Global context for log file (shared across commands)
 app_log_file: Optional[Path] = DEFAULT_DEBUG_LOG_DIR
@@ -89,14 +90,14 @@ def main(
         None,
         "--log-file",
         "-l",
-        help="Global log file path for debug output (applies to all commands with --debug argument)"
+        help="Global log file path for debug output (applies to all commands with --debug argument)",
     ),
     verbose: bool = typer.Option(
         False,
         "--verbose",
         "-v",
-        help="Enable verbose AWS API call tracing (use with --debug for detailed boto3/botocore logging)"
-    )
+        help="Enable verbose AWS API call tracing (use with --debug for detailed boto3/botocore logging)",
+    ),
 ) -> None:
     """
     AWS Multi-Service Scanner
@@ -130,8 +131,7 @@ def scan_command(
     profile: Optional[str] = typer.Option(
         aws_profile, "--profile", "-p", help="AWS profile to use"
     ),
-    tag_key: Optional[str] = typer.Option(
-        None, "--tag-key", help="Filter by tag key"),
+    tag_key: Optional[str] = typer.Option(None, "--tag-key", help="Filter by tag key"),
     tag_value: Optional[str] = typer.Option(
         None, "--tag-value", help="Filter by tag value"
     ),
@@ -197,7 +197,9 @@ def scan_command(
 
     # Configure AWS scanner logging system
     debug_log_file = create_debug_log_file(app_log_file) if debug else None
-    logger = configure_logging(debug=debug, log_file=debug_log_file, verbose=app_verbose)
+    logger = configure_logging(
+        debug=debug, log_file=debug_log_file, verbose=app_verbose
+    )
 
     if debug:
         logger.info("Debug mode enabled - verbose logging activated")
@@ -226,17 +228,17 @@ def scan_command(
     service_workers = max(1, min(service_workers, 10))  # Limit between 1-10
 
     if debug:
-        logger.debug("Worker counts validated - max_workers: %d, service_workers: %d",
-                     max_workers,
-                     service_workers
-                     )
+        logger.debug(
+            "Worker counts validated - max_workers: %d, service_workers: %d",
+            max_workers,
+            service_workers,
+        )
 
     # Validate all_services mode requirements
     if all_services:
         logger.debug("All-services mode requested, validating requirements")
         if not tag_key and not tag_value:
-            logger.error(
-                "All-services mode validation failed: missing tag filters")
+            logger.error("All-services mode validation failed: missing tag filters")
             console.print(
                 "[red]❌ Error: --all-services mode requires either --tag-key or --tag-value[/red]"
             )
@@ -253,10 +255,11 @@ def scan_command(
     original_refresh_interval = refresh_interval
     refresh_interval = max(5, min(refresh_interval, 300))  # Limit between 5-300 seconds
     if debug and original_refresh_interval != refresh_interval:
-        logger.debug("Refresh interval adjusted from %d to %d seconds",
-                     original_refresh_interval,
-                     refresh_interval,
-                     )
+        logger.debug(
+            "Refresh interval adjusted from %d to %d seconds",
+            original_refresh_interval,
+            refresh_interval,
+        )
 
     # Refresh mode validation
     if refresh and dry_run:
@@ -335,12 +338,10 @@ def scan_command(
             )
 
         if not credentials_valid:
-            logger.error("AWS credential validation failed: %s",
-                         credential_message)
+            logger.error("AWS credential validation failed: %s", credential_message)
             console.print(f"\n[red]{credential_message}[/red]")
             console.print("\n[yellow]💡 Possible solutions:[/yellow]")
-            console.print(
-                "   • [dim]Configure AWS credentials: aws configure[/dim]")
+            console.print("   • [dim]Configure AWS credentials: aws configure[/dim]")
             console.print(
                 "   • [dim]Set AWS profile: export AWS_PROFILE=your-profile[/dim]"
             )
@@ -359,8 +360,7 @@ def scan_command(
                     region_list, services, tag_key, tag_value, all_services
                 )
                 if has_cache:
-                    logger.info(
-                        "Found cached results - proceeding with cached data")
+                    logger.info("Found cached results - proceeding with cached data")
                     console.print(
                         "[yellow]⚠️  Found cached results from previous scans.[/yellow]"
                     )
@@ -368,8 +368,7 @@ def scan_command(
                         "[dim]Note: Cached data may be outdated. Set up AWS credentials for real-time results.[/dim]"
                     )
                 else:
-                    logger.error(
-                        "No cached results available and credentials invalid")
+                    logger.error("No cached results available and credentials invalid")
                     console.print("[red]No cached results available.[/red]")
                     raise typer.Exit(1)
         else:
@@ -378,7 +377,8 @@ def scan_command(
 
     except RuntimeError as e:
         logger.log_error_context(
-            e, {"profile": profile, "operation": "AWS session creation"})
+            e, {"profile": profile, "operation": "AWS session creation"}
+        )
         console.print(f"\n[red]AWS Session Error: {e}[/red]")
         console.print(
             "\n[yellow]💡 Please check your AWS configuration and try again.[/yellow]"
@@ -418,12 +418,10 @@ def scan_command(
         # Handle refresh mode display
         if refresh and scan_count > 1:
             if debug:
-                logger.debug(
-                    "Refresh mode - clearing screen and updating display")
+                logger.debug("Refresh mode - clearing screen and updating display")
             console.clear()
             display_banner(debug)
-            console.print(
-                f"[bold cyan]Refresh Mode - Scan #{scan_count}[/bold cyan]")
+            console.print(f"[bold cyan]Refresh Mode - Scan #{scan_count}[/bold cyan]")
             console.print(
                 f"[dim]Last updated: {time.strftime('%Y-%m-%d %H:%M:%S')}[/dim]\n"
             )
@@ -440,12 +438,13 @@ def scan_command(
             break
         if debug:
             logger.debug("Starting scan execution")
-            logger.debug("Scan parameters: regions=%d, services=%d, workers=%d/%d",
-                         len(region_list),
-                         len(services),
-                         max_workers,
-                         service_workers
-                         )
+            logger.debug(
+                "Scan parameters: regions=%d, services=%d, workers=%d/%d",
+                len(region_list),
+                len(services),
+                max_workers,
+                service_workers,
+            )
 
         # Create a clean progress display that doesn't interfere with debug logging
         progress_console = get_output_console()
@@ -458,7 +457,7 @@ def scan_command(
             TaskProgressColumn(),
             TimeElapsedColumn(),
             console=progress_console,
-            refresh_per_second=10
+            refresh_per_second=10,
         )
 
         # Use Live to properly contain the progress in a panel
@@ -467,11 +466,11 @@ def scan_command(
                 progress_display,
                 title=f"[bold blue]Scanning Progress (Scan #{scan_count})[/bold blue]",
                 border_style="blue",
-                padding=(0, 1)
+                padding=(0, 1),
             ),
             console=progress_console,
-            refresh_per_second=10
-        ) as live:
+            refresh_per_second=10,
+        ):
             progress = progress_display
 
             # Temporarily disable console logging during Live display to prevent interference
@@ -515,13 +514,19 @@ def scan_command(
         total_scan_time += scan_duration
 
         if debug:
-            total_resources = sum(len(results)
-                                  for results in all_results.values() if results)
-            logger.info("Scan #%d completed: %d resources in %.2fs",
-                        scan_count, total_resources, scan_duration)
+            total_resources = sum(
+                len(results) for results in all_results.values() if results
+            )
+            logger.info(
+                "Scan #%d completed: %d resources in %.2fs",
+                scan_count,
+                total_resources,
+                scan_duration,
+            )
             avg_time = total_scan_time / scan_count
-            logger.debug("Performance metrics: avg=%.2fs, total=%.2fs",
-                         avg_time, total_scan_time)
+            logger.debug(
+                "Performance metrics: avg=%.2fs, total=%.2fs", avg_time, total_scan_time
+            )
 
         # Check for shutdown after scan completes
         if shutdown_requested.is_set():
@@ -569,8 +574,7 @@ def scan_command(
 
             # Output results
             if not refresh or scan_count == 1:
-                console.print(
-                    "\n[bold green]Generating output...[/bold green]")
+                console.print("\n[bold green]Generating output...[/bold green]")
 
             resource_count = output_results(
                 all_results, current_output_file, output_format, debug
@@ -608,10 +612,8 @@ def _display_configuration_panel(
 ) -> None:
     """Display the configuration panel."""
     # Create an elegant configuration panel with centered title
-    config_table = Table(show_header=False, box=None,
-                         min_width=TABLE_MINIMUM_WIDTH)
-    config_table.add_column("Parameter", style="cyan",
-                            width=18, highlight=True)
+    config_table = Table(show_header=False, box=None, min_width=TABLE_MINIMUM_WIDTH)
+    config_table.add_column("Parameter", style="cyan", width=18, highlight=True)
     config_table.add_column("Value", style="yellow", width=60, highlight=True)
 
     # Auto-detect scanning mode for display
@@ -699,7 +701,7 @@ def _display_regions_panel(region_list: List[str], debug: bool) -> None:
 
         # Add regions in groups of 3
         for i in range(0, len(region_list), 3):
-            row_regions = region_list[i: i + 3]
+            row_regions = region_list[i : i + 3]
             row = [
                 f"{row_regions[j]}" if j < len(row_regions) else "" for j in range(3)
             ]
@@ -743,8 +745,7 @@ def _handle_dry_run(
     for i, region in enumerate(region_list, 1):
         console.print(f"    {i}. {region}")
 
-    console.print(
-        f"\n  • [bold]Services to scan per region:[/bold] {len(services)}")
+    console.print(f"\n  • [bold]Services to scan per region:[/bold] {len(services)}")
     for i, service in enumerate(services, 1):
         console.print(f"    {i}. {service}")
 
@@ -760,8 +761,7 @@ def _handle_dry_run(
     console.print(
         f"  • [bold]Parallel workers:[/bold] {max_workers} regions, {service_workers} services per region"
     )
-    console.print(
-        f"  • [bold]Caching:[/bold] {'Enabled' if use_cache else 'Disabled'}")
+    console.print(f"  • [bold]Caching:[/bold] {'Enabled' if use_cache else 'Disabled'}")
     console.print(f"  • [bold]Output format:[/bold] {output_format}")
 
     if output_file:
@@ -781,10 +781,8 @@ def _setup_signal_handlers() -> None:
         if not shutdown_requested.is_set():
             shutdown_requested.set()
             shutdown_printed.set()
-            console.print(
-                "\n\n[yellow]Graceful shutdown requested...[/yellow]")
-            console.print(
-                "[dim]Stopping ongoing operations and cleaning up...[/dim]")
+            console.print("\n\n[yellow]Graceful shutdown requested...[/yellow]")
+            console.print("[dim]Stopping ongoing operations and cleaning up...[/dim]")
         else:
             # If shutdown already requested, force exit on second Ctrl+C
             console.print(
@@ -865,16 +863,13 @@ def _display_scan_completion(
 ) -> None:
     """Display scan completion status."""
     if refresh:
-        console.print(
-            f"\n[bold green]🎉 Scan #{scan_count} completed![/bold green]")
+        console.print(f"\n[bold green]🎉 Scan #{scan_count} completed![/bold green]")
         console.print(
             f"[green]📊 Found {resource_count} resources across {len(all_results)} region{'s' if len(all_results) > 1 else ''} in {scan_duration:.1f}s[/green]"
         )
-        console.print(
-            "[dim cyan]💡 Press Ctrl+C to stop refresh mode[/dim cyan]")
+        console.print("[dim cyan]💡 Press Ctrl+C to stop refresh mode[/dim cyan]")
     else:
-        console.print(
-            "\n[bold green]🎉 Scan completed successfully![/bold green]")
+        console.print("\n[bold green]🎉 Scan completed successfully![/bold green]")
         console.print(
             f"[green]📊 Found {resource_count} resources across {len(all_results)} region{'s' if len(all_results) > 1 else ''} in {scan_duration:.1f}s[/green]"
         )
@@ -901,8 +896,7 @@ def _check_cache_availability(
         else:
             # Check individual service caches
             for service in services:
-                cached_result = get_cached_result(
-                    region, service, tag_key, tag_value)
+                cached_result = get_cached_result(region, service, tag_key, tag_value)
                 if cached_result is not None:
                     return True
     return False
@@ -922,8 +916,7 @@ def _handle_refresh_continuation(
 
     # Wait for next refresh or stop if requested
     if refresh and not shutdown_requested.is_set():
-        console.print(
-            f"[dim]Waiting {refresh_interval}s until next scan...[/dim]")
+        console.print(f"[dim]Waiting {refresh_interval}s until next scan...[/dim]")
 
         # Interruptible sleep
         for _ in range(refresh_interval):
@@ -933,8 +926,7 @@ def _handle_refresh_continuation(
 
     # Exit if stop was requested during wait
     if shutdown_requested.is_set():
-        console.print(
-            f"[yellow]Refresh mode stopped after {scan_count} scans[/yellow]")
+        console.print(f"[yellow]Refresh mode stopped after {scan_count} scans[/yellow]")
         console.print(f"[dim]Total runtime: {total_scan_time:.1f}s[/dim]")
         return False
 

@@ -18,6 +18,7 @@ logger = get_logger("elb_service")
 
 # Separate console for user output to avoid interfering with logs and progress bars
 output_console = get_output_console()
+console = output_console  # Alias for backward compatibility
 
 
 def scan_elb(
@@ -193,12 +194,16 @@ def scan_elb(
 
     # Log completion with resource count
     total_resources = sum(len(result.get(key, [])) for key in result.keys())
-    logger.info("ELB scan completed in region %s: %d total resources", region, total_resources)
+    logger.info(
+        "ELB scan completed in region %s: %d total resources", region, total_resources
+    )
 
     # Debug-level details about each resource type
     for resource_type, resources in result.items():
         if resources:
-            logger.debug("ELB %s in %s: %d resources", resource_type, region, len(resources))
+            logger.debug(
+                "ELB %s in %s: %d resources", resource_type, region, len(resources)
+            )
 
     return result
 

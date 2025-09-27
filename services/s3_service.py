@@ -62,7 +62,7 @@ def _process_bucket_parallel(
         return bucket
 
     except ClientError as e:
-        logger.warning("Could not process bucket %s: %s", bucket['Name'], e)
+        logger.warning("Could not process bucket %s: %s", bucket["Name"], e)
         return None
 
 
@@ -77,7 +77,9 @@ def scan_s3(
     if logger.is_debug_enabled():
         output_console.print(f"[blue]Scanning S3 resources in {region}[/blue]")
 
-    logger.log_aws_operation("s3", "describe_buckets", region, parallel_workers=S3_MAX_WORKERS)
+    logger.log_aws_operation(
+        "s3", "describe_buckets", region, parallel_workers=S3_MAX_WORKERS
+    )
 
     s3_client = session.client("s3", region_name=region)
     result = {}
@@ -91,7 +93,9 @@ def scan_s3(
             for page in page_iterator:
                 buckets.extend(page.get("Buckets", []))
 
-            logger.debug("Retrieved %d total buckets from S3 list_buckets API", len(buckets))
+            logger.debug(
+                "Retrieved %d total buckets from S3 list_buckets API", len(buckets)
+            )
 
         # Process buckets in parallel for much better performance
         filtered_buckets = []
@@ -118,10 +122,18 @@ def scan_s3(
                             filtered_buckets.append(result_bucket)
                     except (ClientError, BotoCoreError) as e:
                         bucket = future_to_bucket[future]
-                        logger.warning("Error processing bucket %s: %s", bucket.get('Name', 'unknown'), e)
+                        logger.warning(
+                            "Error processing bucket %s: %s",
+                            bucket.get("Name", "unknown"),
+                            e,
+                        )
 
-            logger.debug("Processed %d buckets in region %s, %d matched region filter",
-                        len(buckets), region, len(filtered_buckets))
+            logger.debug(
+                "Processed %d buckets in region %s, %d matched region filter",
+                len(buckets),
+                region,
+                len(filtered_buckets),
+            )
 
         result["buckets"] = filtered_buckets
 
@@ -131,12 +143,16 @@ def scan_s3(
 
     # Log completion with resource count
     total_resources = sum(len(result.get(key, [])) for key in result.keys())
-    logger.info("S3 scan completed in region %s: %d total resources", region, total_resources)
+    logger.info(
+        "S3 scan completed in region %s: %d total resources", region, total_resources
+    )
 
     # Debug-level details about each resource type
     for resource_type, resources in result.items():
         if resources:
-            logger.debug("S3 %s in %s: %d resources", resource_type, region, len(resources))
+            logger.debug(
+                "S3 %s in %s: %d resources", resource_type, region, len(resources)
+            )
 
     return result
 

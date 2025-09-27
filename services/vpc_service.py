@@ -21,7 +21,9 @@ from aws_scanner_lib.logging import get_logger, get_output_console
 # Service logger
 logger = get_logger("vpc_service")
 
-output_console = get_output_console() # VPC operations can be parallelized for better performance
+output_console = (
+    get_output_console()
+)  # VPC operations can be parallelized for better performance
 VPC_MAX_WORKERS = 4  # Parallel workers for different resource types
 
 
@@ -181,25 +183,33 @@ def scan_vpc(
         try:
             result["internet_gateways"] = igws_future.result()
         except (ClientError, BotoCoreError) as e:
-            logger.warning("Failed to scan internet gateways in region %s: %s", region, str(e))
+            logger.warning(
+                "Failed to scan internet gateways in region %s: %s", region, str(e)
+            )
             result["internet_gateways"] = []
 
         try:
             result["route_tables"] = route_tables_future.result()
         except (ClientError, BotoCoreError) as e:
-            logger.warning("Failed to scan route tables in region %s: %s", region, str(e))
+            logger.warning(
+                "Failed to scan route tables in region %s: %s", region, str(e)
+            )
             result["route_tables"] = []
 
         try:
             result["nat_gateways"] = nat_gateways_future.result()
         except (ClientError, BotoCoreError) as e:
-            logger.warning("Failed to scan NAT gateways in region %s: %s", region, str(e))
+            logger.warning(
+                "Failed to scan NAT gateways in region %s: %s", region, str(e)
+            )
             result["nat_gateways"] = []
 
         try:
             result["dhcp_options"] = dhcp_options_future.result()
         except (ClientError, BotoCoreError) as e:
-            logger.warning("Failed to scan DHCP options in region %s: %s", region, str(e))
+            logger.warning(
+                "Failed to scan DHCP options in region %s: %s", region, str(e)
+            )
             result["dhcp_options"] = []
 
         # Handle remaining resources sequentially (lower priority/frequency)
@@ -227,12 +237,16 @@ def scan_vpc(
 
     # Log completion with resource count
     total_resources = sum(len(result.get(key, [])) for key in result.keys())
-    logger.info("VPC scan completed in region %s: %d total resources", region, total_resources)
+    logger.info(
+        "VPC scan completed in region %s: %d total resources", region, total_resources
+    )
 
     # Debug-level details about each resource type
     for resource_type, resources in result.items():
         if resources:
-            logger.debug("VPC %s in %s: %d resources", resource_type, region, len(resources))
+            logger.debug(
+                "VPC %s in %s: %d resources", resource_type, region, len(resources)
+            )
 
     return result
 

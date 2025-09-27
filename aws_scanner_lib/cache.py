@@ -53,15 +53,33 @@ def get_cached_result(
             # Check if cache is still valid
             cache_time = datetime.fromtimestamp(cache_file.stat().st_mtime)
             if datetime.now() - cache_time < timedelta(minutes=CACHE_TTL_MINUTES):
-                resource_count = len(cached_data) if isinstance(cached_data, list) else sum(len(v) if isinstance(v, list) else 1 for v in cached_data.values()) if isinstance(cached_data, dict) else 0
-                logger.log_cache_operation("check", f"{region}:{service}:{tag_key}:{tag_value}", hit=True, resource_count=resource_count)
+                resource_count = (
+                    len(cached_data)
+                    if isinstance(cached_data, list)
+                    else (
+                        sum(
+                            len(v) if isinstance(v, list) else 1
+                            for v in cached_data.values()
+                        )
+                        if isinstance(cached_data, dict)
+                        else 0
+                    )
+                )
+                logger.log_cache_operation(
+                    "check",
+                    f"{region}:{service}:{tag_key}:{tag_value}",
+                    hit=True,
+                    resource_count=resource_count,
+                )
                 return cast(Dict[str, Any], cached_data)
             else:
                 logger.debug("Cache expired for %s:%s", region, service)
         except Exception as e:
             logger.debug("Cache read error for %s:%s: %s", region, service, str(e))
 
-    logger.log_cache_operation("check", f"{region}:{service}:{tag_key}:{tag_value}", hit=False)
+    logger.log_cache_operation(
+        "check", f"{region}:{service}:{tag_key}:{tag_value}", hit=False
+    )
     return None
 
 
@@ -81,8 +99,20 @@ def cache_result(
         with open(cache_file, "wb") as f:
             pickle.dump(result, f)
 
-        resource_count = len(result) if isinstance(result, list) else sum(len(v) if isinstance(v, list) else 1 for v in result.values()) if isinstance(result, dict) else 0
-        logger.log_cache_operation("store", f"{region}:{service}:{tag_key}:{tag_value}", resource_count=resource_count)
+        resource_count = (
+            len(result)
+            if isinstance(result, list)
+            else (
+                sum(len(v) if isinstance(v, list) else 1 for v in result.values())
+                if isinstance(result, dict)
+                else 0
+            )
+        )
+        logger.log_cache_operation(
+            "store",
+            f"{region}:{service}:{tag_key}:{tag_value}",
+            resource_count=resource_count,
+        )
 
     except Exception as e:
         logger.debug("Cache write error for %s:%s: %s", region, service, str(e))

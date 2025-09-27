@@ -57,16 +57,29 @@ def scan_all_services_with_tags(
     start_time = time.time()
 
     logger.debug("Starting all-services scan in region %s", region)
-    logger.log_aws_operation("resource-groups", "scan_all_tagged_resources", region,
-                           tag_key=tag_key, tag_value=tag_value)
+    logger.log_aws_operation(
+        "resource-groups",
+        "scan_all_tagged_resources",
+        region,
+        tag_key=tag_key,
+        tag_value=tag_value,
+    )
 
     # Check cache first
     if use_cache:
-        logger.log_cache_operation("check", f"{region}:all_services:{tag_key}:{tag_value}")
+        logger.log_cache_operation(
+            "check", f"{region}:all_services:{tag_key}:{tag_value}"
+        )
         cached_result = get_cached_result(region, "all_services", tag_key, tag_value)
         if cached_result is not None:
-            logger.log_cache_operation("hit", f"{region}:all_services", hit=True,
-                                     resource_count=sum(len(v) if isinstance(v, list) else 1 for v in cached_result.values()))
+            logger.log_cache_operation(
+                "hit",
+                f"{region}:all_services",
+                hit=True,
+                resource_count=sum(
+                    len(v) if isinstance(v, list) else 1 for v in cached_result.values()
+                ),
+            )
             scan_duration = time.time() - start_time
             return region, cached_result, scan_duration
 
@@ -76,11 +89,15 @@ def scan_all_services_with_tags(
             results = scan_all_tagged_resources(session, region, tag_key, tag_value)
 
         scan_duration = time.time() - start_time
-        resource_count = sum(len(v) if isinstance(v, list) else 1 for v in results.values())
+        resource_count = sum(
+            len(v) if isinstance(v, list) else 1 for v in results.values()
+        )
 
         # Cache the results
         if use_cache and results:
-            logger.log_cache_operation("store", f"{region}:all_services", resource_count=resource_count)
+            logger.log_cache_operation(
+                "store", f"{region}:all_services", resource_count=resource_count
+            )
             cache_result(region, "all_services", results, tag_key, tag_value)
 
         logger.log_scan_progress("all-services", region, resource_count, scan_duration)
@@ -92,8 +109,15 @@ def scan_all_services_with_tags(
 
     except (ClientError, EndpointConnectionError, ConnectTimeoutError) as e:
         logger.error("Failed cross-service scan in region %s: %s", region, str(e))
-        logger.log_error_context(e, {"region": region, "operation": "all_services_scan",
-                                   "tag_key": tag_key, "tag_value": tag_value})
+        logger.log_error_context(
+            e,
+            {
+                "region": region,
+                "operation": "all_services_scan",
+                "tag_key": tag_key,
+                "tag_value": tag_value,
+            },
+        )
         return region, {}, time.time() - start_time
 
 
@@ -122,16 +146,25 @@ def retry_with_backoff(func: Any, max_retries: int = 3, base_delay: float = 1) -
             ]:
                 if attempt < max_retries - 1:
                     delay = base_delay * (2**attempt) + random.uniform(0, 1)
-                    logger.warning("Retrying in %.1fs due to %s (attempt %d/%d)",
-                                 delay, error_code, attempt + 1, max_retries)
+                    logger.warning(
+                        "Retrying in %.1fs due to %s (attempt %d/%d)",
+                        delay,
+                        error_code,
+                        attempt + 1,
+                        max_retries,
+                    )
                     time.sleep(delay)
                     continue
             raise e
         except (EndpointConnectionError, ConnectTimeoutError) as e:
             if attempt < max_retries - 1:
                 delay = base_delay * (2**attempt) + random.uniform(0, 1)
-                logger.warning("Retrying connection in %.1fs (attempt %d/%d)",
-                             delay, attempt + 1, max_retries)
+                logger.warning(
+                    "Retrying connection in %.1fs (attempt %d/%d)",
+                    delay,
+                    attempt + 1,
+                    max_retries,
+                )
                 time.sleep(delay)
                 continue
             raise e
@@ -201,7 +234,9 @@ def scan_service(
         return cast(Dict[str, Any], result)
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "Unknown")
-        logger.error("AWS API Error for %s in %s: %s - %s", service, region, error_code, str(e))
+        logger.error(
+            "AWS API Error for %s in %s: %s - %s", service, region, error_code, str(e)
+        )
         return {}
     except EndpointConnectionError as e:
         logger.error("Connection Error for %s in %s: %s", service, region, str(e))
@@ -230,14 +265,20 @@ def scan_region(
     region_results = {}
 
     logger.debug("Starting region scan for %s with %d services", region, len(services))
-    logger.debug("Service configuration: workers=%d, cache=%s", service_workers, use_cache)
+    logger.debug(
+        "Service configuration: workers=%d, cache=%s", service_workers, use_cache
+    )
 
     # Limit workers to reasonable bounds
     max_service_workers = min(len(services), max(1, min(service_workers, 10)))
 
     if max_service_workers != service_workers:
-        logger.debug("Adjusted service workers from %d to %d for region %s",
-                                 service_workers, max_service_workers, region)
+        logger.debug(
+            "Adjusted service workers from %d to %d for region %s",
+            service_workers,
+            max_service_workers,
+            region,
+        )
 
     with ThreadPoolExecutor(max_workers=max_service_workers) as executor:
         # Submit service scanning tasks
@@ -279,9 +320,17 @@ def scan_region(
                     service_results_summary[service] = total_resources
                 else:
                     service_results_summary[service] = 0
-            except (ClientError, EndpointConnectionError, ConnectTimeoutError, NoCredentialsError) as e:
+            except (
+                ClientError,
+                EndpointConnectionError,
+                ConnectTimeoutError,
+                NoCredentialsError,
+            ) as e:
                 logger.error("Error scanning %s in %s: %s", service, region, str(e))
-                logger.log_error_context(e, {"service": service, "region": region, "operation": "service_scan"})
+                logger.log_error_context(
+                    e,
+                    {"service": service, "region": region, "operation": "service_scan"},
+                )
                 service_results_summary[service] = 0
 
             # Update progress if callback provided

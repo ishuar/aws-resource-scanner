@@ -16,9 +16,9 @@ Unified logging system for AWS resource scanner with all features:
 
 import logging
 import time
-from pathlib import Path
-from typing import Optional, Any, Dict
 from contextlib import contextmanager
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -45,9 +45,17 @@ class SimpleTimer:
         if self.start_time is not None:
             duration = time.perf_counter() - self.start_time
             if exc_type is None:
-                self.logger.debug("Completed: %s (%.3fs)", self.operation, duration, stacklevel=3)
+                self.logger.debug(
+                    "Completed: %s (%.3fs)", self.operation, duration, stacklevel=3
+                )
             else:
-                self.logger.error("Failed: %s (%.3fs) - %s", self.operation, duration, exc_val, stacklevel=3)
+                self.logger.error(
+                    "Failed: %s (%.3fs) - %s",
+                    self.operation,
+                    duration,
+                    exc_val,
+                    stacklevel=3,
+                )
 
 
 class AWSLogger:
@@ -72,7 +80,12 @@ class AWSLogger:
         self._progress_console: Optional[Console] = None
         self._is_configured = False
 
-    def configure(self, debug: bool = False, log_file: Optional[Path] = None, verbose: bool = False) -> None:
+    def configure(
+        self,
+        debug: bool = False,
+        log_file: Optional[Path] = None,
+        verbose: bool = False,
+    ) -> None:
         """One-method setup for all logging needs."""
         # Always reconfigure if debug mode is requested to ensure file logging is set up
         if self._is_configured and not debug:
@@ -97,7 +110,7 @@ class AWSLogger:
             stderr=False,  # Use stdout for logging
             force_terminal=True,
             legacy_windows=False,
-            width=None
+            width=None,
         )
 
         console_handler = RichHandler(
@@ -108,7 +121,7 @@ class AWSLogger:
             rich_tracebacks=True,
             tracebacks_show_locals=debug,
             keywords=[],
-            omit_repeated_times=False
+            omit_repeated_times=False,
         )
 
         console_handler.setLevel(logging.DEBUG if debug else logging.INFO)
@@ -144,20 +157,22 @@ class AWSLogger:
             # Ensure log directory exists
             log_file.parent.mkdir(parents=True, exist_ok=True)
 
-            file_handler = logging.FileHandler(log_file, mode='a', encoding='utf-8')
+            file_handler = logging.FileHandler(log_file, mode="a", encoding="utf-8")
             file_handler.setLevel(logging.DEBUG)
 
             # Detailed format for file logging - shows complete file paths and caller info
             file_formatter = logging.Formatter(
-                '%(asctime)s.%(msecs)03d | %(name)s | %(levelname)-8s | %(pathname)s:%(funcName)s:%(lineno)d | %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
+                "%(asctime)s.%(msecs)03d | %(name)s | %(levelname)-8s | %(pathname)s:%(funcName)s:%(lineno)d | %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
             )
             file_handler.setFormatter(file_formatter)
             self.logger.addHandler(file_handler)
 
             # Log session start
             self.logger.debug("=" * 80)
-            self.logger.debug("AWS Resource Scanner Debug Session Started (Simplified Logger)")
+            self.logger.debug(
+                "AWS Resource Scanner Debug Session Started (Simplified Logger)"
+            )
             self.logger.debug("=" * 80)
 
         except OSError as e:
@@ -166,9 +181,15 @@ class AWSLogger:
     def _suppress_noisy_loggers(self) -> None:
         """Suppress noisy third-party library loggers."""
         noisy_loggers = [
-            'boto3', 'botocore', 'urllib3', 'requests', 's3transfer',
-            'botocore.credentials', 'botocore.httpsession',
-            'botocore.parsers', 'botocore.endpoint'
+            "boto3",
+            "botocore",
+            "urllib3",
+            "requests",
+            "s3transfer",
+            "botocore.credentials",
+            "botocore.httpsession",
+            "botocore.parsers",
+            "botocore.endpoint",
         ]
 
         for logger_name in noisy_loggers:
@@ -178,21 +199,21 @@ class AWSLogger:
         """Enable comprehensive AWS API call tracing with detailed request/response logging."""
         # Configure all AWS-related loggers for detailed tracing
         aws_loggers = {
-            'boto3': logging.DEBUG,
-            'boto3.session': logging.DEBUG,
-            'boto3.resources': logging.DEBUG,
-            'botocore': logging.DEBUG,
-            'botocore.client': logging.DEBUG,
-            'botocore.endpoint': logging.DEBUG,
-            'botocore.httpsession': logging.DEBUG,
-            'botocore.parsers': logging.DEBUG,
-            'botocore.response': logging.DEBUG,
-            'botocore.awsrequest': logging.DEBUG,
-            'botocore.credentials': logging.INFO,  # Slightly less verbose for security
-            'urllib3.connectionpool': logging.DEBUG,
-            'urllib3.util.retry': logging.DEBUG,
-            'requests.packages.urllib3': logging.DEBUG,
-            's3transfer': logging.DEBUG
+            "boto3": logging.DEBUG,
+            "boto3.session": logging.DEBUG,
+            "boto3.resources": logging.DEBUG,
+            "botocore": logging.DEBUG,
+            "botocore.client": logging.DEBUG,
+            "botocore.endpoint": logging.DEBUG,
+            "botocore.httpsession": logging.DEBUG,
+            "botocore.parsers": logging.DEBUG,
+            "botocore.response": logging.DEBUG,
+            "botocore.awsrequest": logging.DEBUG,
+            "botocore.credentials": logging.INFO,  # Slightly less verbose for security
+            "urllib3.connectionpool": logging.DEBUG,
+            "urllib3.util.retry": logging.DEBUG,
+            "requests.packages.urllib3": logging.DEBUG,
+            "s3transfer": logging.DEBUG,
         }
 
         for logger_name, level in aws_loggers.items():
@@ -208,21 +229,26 @@ class AWSLogger:
         # Enable HTTP wire logging for full request/response details
         try:
             import urllib3
+
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         except ImportError:
             pass
 
-        self.logger.debug("Verbose AWS API tracing enabled - all boto3/botocore calls will be logged")
-        self.logger.debug("HTTP request/response details, API parameters, and response data will be captured")
+        self.logger.debug(
+            "Verbose AWS API tracing enabled - all boto3/botocore calls will be logged"
+        )
+        self.logger.debug(
+            "HTTP request/response details, API parameters, and response data will be captured"
+        )
 
     def _enable_boto3_logging(self) -> None:
         """Enable detailed boto3/botocore logging for AWS API call tracking."""
         # Enable boto3 wire logging for API call details
-        boto3_logger = logging.getLogger('boto3.resources')
+        boto3_logger = logging.getLogger("boto3.resources")
         boto3_logger.setLevel(logging.DEBUG)
 
         # Enable botocore event logging
-        botocore_logger = logging.getLogger('botocore.endpoint')
+        botocore_logger = logging.getLogger("botocore.endpoint")
         botocore_logger.setLevel(logging.DEBUG)
 
         self.logger.debug("Enhanced AWS API call logging enabled")
@@ -233,15 +259,20 @@ class AWSLogger:
             self._progress_console = Console(
                 stderr=True,  # Use stderr for progress - isolated from logs
                 force_terminal=True,
-                legacy_windows=False
+                legacy_windows=False,
             )
         return self._progress_console
 
     def disable_console_output(self, log_file_path: Optional[Path] = None) -> None:
         """Disable console logging during Live displays with user info."""
         if log_file_path and self._debug_mode:
-            self.logger.info("Debug events during progress display will be written to: %s", log_file_path)
-            self.logger.info("Console debug output temporarily disabled during Live progress display")
+            self.logger.info(
+                "Debug events during progress display will be written to: %s",
+                log_file_path,
+            )
+            self.logger.info(
+                "Console debug output temporarily disabled during Live progress display"
+            )
 
         for handler in self.logger.handlers:
             if isinstance(handler, RichHandler):
@@ -255,7 +286,9 @@ class AWSLogger:
 
         if log_file_path and self._debug_mode:
             self.logger.info("Console debug output restored")
-            self.logger.info("For debug events during progress display, see: %s", log_file_path)
+            self.logger.info(
+                "For debug events during progress display, see: %s", log_file_path
+            )
 
     @contextmanager
     def timer(self, operation: str) -> Any:
@@ -275,69 +308,107 @@ class AWSLogger:
     # Logging methods that preserve caller information
     def debug(self, message: str, *args: Any, **kwargs: Any) -> None:
         """Log debug message with preserved caller context."""
-        kwargs.setdefault('stacklevel', 2)
+        kwargs.setdefault("stacklevel", 2)
         self.logger.debug(message, *args, **kwargs)
 
     def info(self, message: str, *args: Any, **kwargs: Any) -> None:
         """Log info message with preserved caller context."""
-        kwargs.setdefault('stacklevel', 2)
+        kwargs.setdefault("stacklevel", 2)
         self.logger.info(message, *args, **kwargs)
 
     def warning(self, message: str, *args: Any, **kwargs: Any) -> None:
         """Log warning message with preserved caller context."""
-        kwargs.setdefault('stacklevel', 2)
+        kwargs.setdefault("stacklevel", 2)
         self.logger.warning(message, *args, **kwargs)
 
     def error(self, message: str, *args: Any, **kwargs: Any) -> None:
         """Log error message with preserved caller context."""
-        kwargs.setdefault('stacklevel', 2)
+        kwargs.setdefault("stacklevel", 2)
         self.logger.error(message, *args, **kwargs)
 
     def critical(self, message: str, *args: Any, **kwargs: Any) -> None:
         """Log critical message with preserved caller context."""
-        kwargs.setdefault('stacklevel', 2)
+        kwargs.setdefault("stacklevel", 2)
         self.logger.critical(message, *args, **kwargs)
 
     # Specialized logging methods for AWS operations
-    def log_aws_operation(self, service: str, operation: str, region: str, **kwargs: Any) -> None:
+    def log_aws_operation(
+        self, service: str, operation: str, region: str, **kwargs: Any
+    ) -> None:
         """Log AWS service operations with enhanced detail for boto3 API calls."""
-        extra_info = ', '.join(f"{k}={v}" for k, v in kwargs.items()) if kwargs else ""
+        extra_info = ", ".join(f"{k}={v}" for k, v in kwargs.items()) if kwargs else ""
         context = f" ({extra_info})" if extra_info else ""
 
         # Enhanced logging for AWS API operations
-        if operation.startswith('boto3_'):
+        if operation.startswith("boto3_"):
             # This is a direct AWS API call
-            api_call = operation.replace('boto3_', '')
-            self.logger.debug("AWS API Call: %s.%s() in %s%s", service, api_call, region, context, stacklevel=2)
+            api_call = operation.replace("boto3_", "")
+            self.logger.debug(
+                "AWS API Call: %s.%s() in %s%s",
+                service,
+                api_call,
+                region,
+                context,
+                stacklevel=2,
+            )
         else:
             # This is an internal scanner operation
-            self.logger.debug("AWS %s operation '%s' in %s%s", service, operation, region, context, stacklevel=2)
+            self.logger.debug(
+                "AWS %s operation '%s' in %s%s",
+                service,
+                operation,
+                region,
+                context,
+                stacklevel=2,
+            )
 
-    def log_scan_progress(self, service: str, region: str, resource_count: int, duration: float) -> None:
+    def log_scan_progress(
+        self, service: str, region: str, resource_count: int, duration: float
+    ) -> None:
         """Log scan progress and performance metrics."""
-        self.logger.debug("Scan complete: %s in %s - %d resources (%.2fs)",
-                         service, region, resource_count, duration, stacklevel=2)
+        self.logger.debug(
+            "Scan complete: %s in %s - %d resources (%.2fs)",
+            service,
+            region,
+            resource_count,
+            duration,
+            stacklevel=2,
+        )
 
-    def log_cache_operation(self, operation: str, key: str, hit: Optional[bool] = None, **kwargs: Any) -> None:
+    def log_cache_operation(
+        self, operation: str, key: str, hit: Optional[bool] = None, **kwargs: Any
+    ) -> None:
         """Log cache operations with enhanced context."""
         if hit is not None:
             status = "HIT" if hit else "MISS"
-            extra = f" ({kwargs.get('resource_count', 'unknown')} resources)" if hit and 'resource_count' in kwargs else ""
+            extra = (
+                f" ({kwargs.get('resource_count', 'unknown')} resources)"
+                if hit and "resource_count" in kwargs
+                else ""
+            )
             self.logger.debug("Cache %s for %s%s", status, key, extra, stacklevel=2)
         else:
-            extra_info = ', '.join(f"{k}={v}" for k, v in kwargs.items()) if kwargs else ""
+            extra_info = (
+                ", ".join(f"{k}={v}" for k, v in kwargs.items()) if kwargs else ""
+            )
             context = f" ({extra_info})" if extra_info else ""
-            self.logger.debug("Cache %s: %s%s", operation.upper(), key, context, stacklevel=2)
+            self.logger.debug(
+                "Cache %s: %s%s", operation.upper(), key, context, stacklevel=2
+            )
 
-    def log_error_context(self, error: Exception, context: Optional[Dict[str, Any]] = None) -> None:
+    def log_error_context(
+        self, error: Exception, context: Optional[Dict[str, Any]] = None
+    ) -> None:
         """Log error with contextual information."""
         error_msg = f"❌ Error: {type(error).__name__}: {error}"
         if context:
-            context_str = ', '.join(f"{k}={v}" for k, v in context.items())
+            context_str = ", ".join(f"{k}={v}" for k, v in context.items())
             error_msg += f" (Context: {context_str})"
         self.logger.error(error_msg, stacklevel=2)
 
-    def log_boto3_api_call(self, service: str, method: str, region: str, **kwargs: Any) -> None:
+    def log_boto3_api_call(
+        self, service: str, method: str, region: str, **kwargs: Any
+    ) -> None:
         """
         Log boto3 API calls to AWS with request details.
 
@@ -346,17 +417,26 @@ class AWSLogger:
         """
         params = []
         for key, value in kwargs.items():
-            if key in ['response_code', 'response_time', 'error']:
+            if key in ["response_code", "response_time", "error"]:
                 continue
             params.append(f"{key}={value}")
 
         param_str = f"({', '.join(params)})" if params else ""
 
         # Log the outgoing request
-        self.logger.debug("→ AWS %s.%s%s [%s]", service, method, param_str, region, stacklevel=2)
+        self.logger.debug(
+            "→ AWS %s.%s%s [%s]", service, method, param_str, region, stacklevel=2
+        )
 
-    def log_boto3_response(self, service: str, method: str, region: str, response_code: int = 200,
-                          response_time: Optional[float] = None, error: Optional[str] = None) -> None:
+    def log_boto3_response(
+        self,
+        service: str,
+        method: str,
+        region: str,
+        response_code: int = 200,
+        response_time: Optional[float] = None,
+        error: Optional[str] = None,
+    ) -> None:
         """
         Log boto3 API response from AWS.
 
@@ -364,17 +444,34 @@ class AWSLogger:
         To use: logger.log_boto3_response('ec2', 'describe_instances', 'us-east-1', 200, 0.123)
         """
         if error:
-            self.logger.debug("← AWS %s.%s [%s] ❌ ERROR: %s", service, method, region, error, stacklevel=2)
+            self.logger.debug(
+                "← AWS %s.%s [%s] ❌ ERROR: %s",
+                service,
+                method,
+                region,
+                error,
+                stacklevel=2,
+            )
         else:
             timing = f" ({response_time:.2f}s)" if response_time else ""
-            self.logger.debug("← AWS %s.%s [%s] ✅ %d%s", service, method, region, response_code, timing, stacklevel=2)
+            self.logger.debug(
+                "← AWS %s.%s [%s] ✅ %d%s",
+                service,
+                method,
+                region,
+                response_code,
+                timing,
+                stacklevel=2,
+            )
 
 
 # Global logger instance
 _aws_logger: Optional[AWSLogger] = None
 
 
-def configure_logging(debug: bool = False, log_file: Optional[Path] = None, verbose: bool = False) -> AWSLogger:
+def configure_logging(
+    debug: bool = False, log_file: Optional[Path] = None, verbose: bool = False
+) -> AWSLogger:
     """
     Configure and return the AWS scanner logging system.
 
@@ -451,5 +548,3 @@ def create_debug_log_file(log_file: Optional[Path]) -> Path:
         # Use default directory with timestamped file
         DEFAULT_DEBUG_LOG_DIR.mkdir(exist_ok=True)
         return DEFAULT_DEBUG_LOG_DIR / f"aws_scanner_debug_{timestamp}.log"
-
-

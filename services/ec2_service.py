@@ -118,7 +118,9 @@ def scan_ec2(
     if logger.is_debug_enabled():
         output_console.print(f"[blue]Scanning EC2 resources in {region}[/blue]")
 
-    logger.log_aws_operation("ec2", "describe_multiple", region, parallel_workers=EC2_MAX_WORKERS)
+    logger.log_aws_operation(
+        "ec2", "describe_multiple", region, parallel_workers=EC2_MAX_WORKERS
+    )
 
     result = {}
     ec2_client = session.client("ec2", region_name=region)
@@ -131,7 +133,9 @@ def scan_ec2(
         with logger.timer(f"EC2 parallel scan in {region}"):
             with ThreadPoolExecutor(max_workers=EC2_MAX_WORKERS) as executor:
                 # Submit all tasks
-                instances_future = executor.submit(_scan_ec2_instances, ec2_client, filters)
+                instances_future = executor.submit(
+                    _scan_ec2_instances, ec2_client, filters
+                )
                 volumes_future = executor.submit(_scan_ec2_volumes, ec2_client, filters)
                 security_groups_future = executor.submit(
                     _scan_ec2_security_groups, ec2_client, filters
@@ -143,19 +147,25 @@ def scan_ec2(
         try:
             result["instances"] = instances_future.result()
         except (ClientError, BotoCoreError) as e:
-            logger.warning("Failed to scan EC2 instances in region %s: %s", region, str(e))
+            logger.warning(
+                "Failed to scan EC2 instances in region %s: %s", region, str(e)
+            )
             result["instances"] = []
 
         try:
             result["volumes"] = volumes_future.result()
         except (ClientError, BotoCoreError) as e:
-            logger.warning("Failed to scan EC2 volumes in region %s: %s", region, str(e))
+            logger.warning(
+                "Failed to scan EC2 volumes in region %s: %s", region, str(e)
+            )
             result["volumes"] = []
 
         try:
             result["security_groups"] = security_groups_future.result()
         except (ClientError, BotoCoreError) as e:
-            logger.warning("Failed to scan EC2 security groups in region %s: %s", region, str(e))
+            logger.warning(
+                "Failed to scan EC2 security groups in region %s: %s", region, str(e)
+            )
             result["security_groups"] = []
 
         try:
@@ -167,12 +177,16 @@ def scan_ec2(
         try:
             result["snapshots"] = snapshots_future.result()
         except (ClientError, BotoCoreError) as e:
-            logger.warning("Failed to scan EC2 snapshots in region %s: %s", region, str(e))
+            logger.warning(
+                "Failed to scan EC2 snapshots in region %s: %s", region, str(e)
+            )
             result["snapshots"] = []
 
     except (ClientError, BotoCoreError) as e:
         logger.error("EC2 scan failed for region %s: %s", region, str(e))
-        logger.log_error_context(e, {"service": "ec2", "region": region, "operation": "full_scan"})
+        logger.log_error_context(
+            e, {"service": "ec2", "region": region, "operation": "full_scan"}
+        )
         result = {
             "instances": [],
             "volumes": [],
@@ -183,12 +197,16 @@ def scan_ec2(
 
         # Log scan completion with resource counts
     total_resources = sum(len(v) for v in result.values())
-    logger.info("EC2 scan completed in region %s: %d total resources", region, total_resources)
+    logger.info(
+        "EC2 scan completed in region %s: %d total resources", region, total_resources
+    )
 
     # Debug-level details about each resource type
     for resource_type, resources in result.items():
         if resources:
-            logger.debug("EC2 %s in %s: %d resources", resource_type, region, len(resources))
+            logger.debug(
+                "EC2 %s in %s: %d resources", resource_type, region, len(resources)
+            )
 
     return result
 

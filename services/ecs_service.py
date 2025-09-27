@@ -18,6 +18,7 @@ from aws_scanner_lib.logging import get_logger, get_output_console
 
 # Service logger
 logger = get_logger("ecs_service")
+console = get_output_console()
 
 # Separate console for user output to avoid interfering with logs and progress bars
 output_console = get_output_console()
@@ -73,7 +74,9 @@ def scan_ecs(
     if logger.is_debug_enabled():
         output_console.print(f"[blue]Scanning ECS resources in {region}[/blue]")
 
-    logger.log_aws_operation("ecs", "describe_clusters", region, parallel_workers=ECS_TASK_DEF_MAX_WORKERS)
+    logger.log_aws_operation(
+        "ecs", "describe_clusters", region, parallel_workers=ECS_TASK_DEF_MAX_WORKERS
+    )
 
     ecs_client = session.client("ecs", region_name=region)
     result = {}
@@ -247,12 +250,16 @@ def scan_ecs(
 
     # Log completion with resource count
     total_resources = sum(len(result.get(key, [])) for key in result.keys())
-    logger.info("ECS scan completed in region %s: %d total resources", region, total_resources)
+    logger.info(
+        "ECS scan completed in region %s: %d total resources", region, total_resources
+    )
 
     # Debug-level details about each resource type
     for resource_type, resources in result.items():
         if resources:
-            logger.debug("ECS %s in %s: %d resources", resource_type, region, len(resources))
+            logger.debug(
+                "ECS %s in %s: %d resources", resource_type, region, len(resources)
+            )
 
     return result
 

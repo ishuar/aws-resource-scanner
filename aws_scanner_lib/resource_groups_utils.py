@@ -108,7 +108,9 @@ def get_all_tagged_resources_across_services(
 
     except (ClientError, BotoCoreError) as e:
         logger.error("Resource Groups API error in %s: %s", region, str(e))
-        logger.log_error_context(e, {"region": region, "operation": "resource_groups_api"})
+        logger.log_error_context(
+            e, {"region": region, "operation": "resource_groups_api"}
+        )
         return {}
 
 

@@ -27,7 +27,9 @@ console = Console()
 TABLE_MINIMUM_WIDTH = 86
 
 
-def create_aws_resources_table(flattened_resources: List[Dict[str, Any]], debug: bool) -> Table:
+def create_aws_resources_table(
+    flattened_resources: List[Dict[str, Any]], debug: bool
+) -> Table:
     """
     Create a standardized AWS resources table with consistent formatting.
 
@@ -40,7 +42,7 @@ def create_aws_resources_table(flattened_resources: List[Dict[str, Any]], debug:
     table = Table(
         title="AWS Resources",
         border_style="bright_blue" if not debug else "green",
-        min_width=TABLE_MINIMUM_WIDTH
+        min_width=TABLE_MINIMUM_WIDTH,
     )
     table.add_column("Region", style="blue")
     table.add_column("Resource Type", style="yellow")
@@ -115,8 +117,7 @@ def generate_markdown_summary(
     md_content.append("\n## Detailed Resources")
 
     for region in sorted(region_counts.keys()):
-        region_resources = [
-            r for r in flattened_resources if r["region"] == region]
+        region_resources = [r for r in flattened_resources if r["region"] == region]
         if not region_resources:
             continue
 
@@ -165,8 +166,7 @@ def generate_markdown_summary(
     # Add scan metadata
     md_content.append("\n## Scan Metadata")
     md_content.append("- **Tool**: AWS Service Scanner")
-    md_content.append(
-        "- **Version**: Modular Version with Advanced Optimizations")
+    md_content.append("- **Version**: Modular Version with Advanced Optimizations")
 
     return "\n".join(md_content)
 
@@ -189,8 +189,7 @@ def process_generic_service_output(
                     # Extract resource details from Resource Groups API format
                     resource_arn = resource.get("ResourceARN", "")
                     resource_id = resource.get("ResourceId", "")
-                    resource_type = resource.get(
-                        "ResourceType", resource_type_key)
+                    resource_type = resource.get("ResourceType", resource_type_key)
 
                     # Create standardized resource entry with unified format
                     flattened_resource = {
@@ -235,7 +234,10 @@ def _is_resource_groups_api_data(service_data: Dict[str, Any]) -> bool:
 
 
 def output_results(
-    results: Dict[str, Any], output_file: Path, output_format: str, debug: bool,
+    results: Dict[str, Any],
+    output_file: Path,
+    output_format: str,
+    debug: bool,
 ) -> int:
     """Process results using modular output processors and format for output.
 
@@ -252,8 +254,7 @@ def output_results(
                 continue
 
             # Detect if this is Resource Groups API data vs traditional API data
-            is_resource_groups_data = _is_resource_groups_api_data(
-                service_data)
+            is_resource_groups_data = _is_resource_groups_api_data(service_data)
 
             # Route to appropriate processor based on data source
             if is_resource_groups_data:
@@ -264,20 +265,15 @@ def output_results(
             else:
                 # Traditional API data goes through service-specific processors
                 if service_name == "ec2":
-                    process_ec2_output(service_data, region,
-                                       flattened_resources)
+                    process_ec2_output(service_data, region, flattened_resources)
                 elif service_name == "s3":
-                    process_s3_output(service_data, region,
-                                      flattened_resources)
+                    process_s3_output(service_data, region, flattened_resources)
                 elif service_name == "ecs":
-                    process_ecs_output(service_data, region,
-                                       flattened_resources)
+                    process_ecs_output(service_data, region, flattened_resources)
                 elif service_name == "elb":
-                    process_elb_output(service_data, region,
-                                       flattened_resources)
+                    process_elb_output(service_data, region, flattened_resources)
                 elif service_name == "vpc":
-                    process_vpc_output(service_data, region,
-                                       flattened_resources)
+                    process_vpc_output(service_data, region, flattened_resources)
                 elif service_name == "autoscaling":
                     process_autoscaling_output(
                         service_data, region, flattened_resources
@@ -307,16 +303,14 @@ def output_results(
         console.print(f"[green]Data also saved to {output_file}[/green]")
     elif output_format in ("md", "markdown"):
         # Generate markdown summary report
-        markdown_content = generate_markdown_summary(
-            flattened_resources, results)
+        markdown_content = generate_markdown_summary(flattened_resources, results)
 
         # Change extension to .md for markdown files
         md_output_file = output_file.with_suffix(".md")
         # Ensure directory exists for markdown file (might have different path)
         ensure_output_directory(md_output_file)
         md_output_file.write_text(markdown_content)
-        console.print(
-            f"[green]Markdown report saved to {md_output_file}[/green]")
+        console.print(f"[green]Markdown report saved to {md_output_file}[/green]")
 
         # Display the table view in terminal as well
         console.print("\n[bold blue]Resource Table View:[/bold blue]")
@@ -356,8 +350,7 @@ def compare_with_existing(output_file: Path, new_data: Dict[str, Any]) -> None:
         existing_data = json.loads(output_file.read_text())
         diff = DeepDiff(existing_data, new_data, ignore_order=True)
         if not diff:
-            console.print(
-                "[green]No changes detected since last scan.[/green]")
+            console.print("[green]No changes detected since last scan.[/green]")
         else:
             console.print("[yellow]Changes detected![/yellow]")
             console.print(json.dumps(diff, indent=2, default=str))

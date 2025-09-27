@@ -27,13 +27,12 @@ from rich.panel import Panel
 from rich.progress import Progress
 from rich.table import Table
 
+# Import logging (using simplified logging)
+from aws_scanner_lib.logging import get_logger
 from aws_scanner_lib.outputs import TABLE_MINIMUM_WIDTH
 
 # Import modular components
 from aws_scanner_lib.scan import scan_region
-
-# Import logging (using simplified logging)
-from aws_scanner_lib.logging import get_logger
 
 # Global components
 console = Console()
@@ -66,15 +65,18 @@ def get_session(profile_name: Optional[str] = None) -> boto3.Session:
                 logger.debug("Creating new AWS session for profile: %s", cache_key)
                 session = boto3.Session(profile_name=profile_name)
                 _session_pool[cache_key] = session
-                logger.debug("AWS session created and cached for profile: %s", cache_key)
+                logger.debug(
+                    "AWS session created and cached for profile: %s", cache_key
+                )
             except ProfileNotFound as e:
                 logger.log_error_context(
-                    e, {"profile": profile_name, "operation": "session_creation"})
-                raise RuntimeError(
-                    f"AWS profile '{profile_name}' not found") from e
+                    e, {"profile": profile_name, "operation": "session_creation"}
+                )
+                raise RuntimeError(f"AWS profile '{profile_name}' not found") from e
             except Exception as e:  # More generic exception handling
                 logger.log_error_context(
-                    e, {"profile": profile_name, "operation": "session_creation"})
+                    e, {"profile": profile_name, "operation": "session_creation"}
+                )
                 raise RuntimeError(f"Failed to create AWS session: {e}") from e
 
     return _session_pool[cache_key]
@@ -95,17 +97,18 @@ def validate_aws_credentials(
         sts_client = session.client("sts")
 
         logger.log_aws_operation(
-            "sts", "get_caller_identity", "global", profile=profile_name)
+            "sts", "get_caller_identity", "global", profile=profile_name
+        )
         response = sts_client.get_caller_identity()
 
         # Extract account info
         account_id = response.get("Account", "Unknown")
         user_arn = response.get("Arn", "Unknown")
-        user_name = user_arn.split(
-            '/')[-1] if user_arn != "Unknown" else "Unknown"
+        user_name = user_arn.split("/")[-1] if user_arn != "Unknown" else "Unknown"
 
         logger.debug(
-            "Credentials validated - Account: %s, User: %s", account_id, user_name)
+            "Credentials validated - Account: %s, User: %s", account_id, user_name
+        )
 
         return (
             True,
@@ -201,15 +204,13 @@ def check_and_display_cache_status(
         else:
             # Check individual service caches
             for service in services:
-                cached_result = get_cached_result(
-                    region, service, tag_key, tag_value)
+                cached_result = get_cached_result(region, service, tag_key, tag_value)
                 if cached_result is not None:
                     cached_items.append(f"{service} in {region}")
 
     if cached_items:
         # Create cache status table
-        cache_table = Table(show_header=False, box=None,
-                            min_width=TABLE_MINIMUM_WIDTH)
+        cache_table = Table(show_header=False, box=None, min_width=TABLE_MINIMUM_WIDTH)
         cache_table.add_column("", style="dim cyan", width=80)
 
         for item in cached_items:
@@ -232,7 +233,9 @@ def check_and_display_cache_status(
     return False
 
 
-def display_region_summaries(all_results: Dict[str, Dict[str, Any]], debug: bool) -> None:
+def display_region_summaries(
+    all_results: Dict[str, Dict[str, Any]], debug: bool
+) -> None:
     """Display region-wise resource summaries after scanning is complete."""
 
     if not all_results:
@@ -277,8 +280,7 @@ def display_region_summaries(all_results: Dict[str, Dict[str, Any]], debug: bool
 
         # Add separator row
         results_table.add_section()
-        results_table.add_row("TOTAL", str(
-            total_resources), style="bold green")
+        results_table.add_row("TOTAL", str(total_resources), style="bold green")
 
         # Display with Panel
         console.print(
@@ -306,10 +308,18 @@ def perform_scan(
     shutdown_event: Optional[threading.Event] = None,
 ) -> Dict[str, Dict[str, Any]]:
     """Perform the AWS scanning operation with optional progress reporting."""
-    logger.debug("Starting perform_scan with %d regions, %d services",
-                 len(region_list), len(services))
-    logger.debug("Configuration: max_workers=%d, service_workers=%d, use_cache=%s, all_services=%s",
-                 max_workers, service_workers, use_cache, all_services)
+    logger.debug(
+        "Starting perform_scan with %d regions, %d services",
+        len(region_list),
+        len(services),
+    )
+    logger.debug(
+        "Configuration: max_workers=%d, service_workers=%d, use_cache=%s, all_services=%s",
+        max_workers,
+        service_workers,
+        use_cache,
+        all_services,
+    )
 
     all_results = {}
     main_task = None
@@ -421,8 +431,7 @@ def perform_scan(
                                         region_tasks[region_name]
                                     ].total,
                                 )
-                            logger.debug(
-                                "Completed scanning region %s", region_name)
+                            logger.debug("Completed scanning region %s", region_name)
                     else:
                         if progress and main_task is not None:
                             # Update the region task to show no resources
@@ -434,8 +443,7 @@ def perform_scan(
                                         region_tasks[region_name]
                                     ].total,
                                 )
-                            logger.info(
-                                "No resources found in region %s", region_name)
+                            logger.info("No resources found in region %s", region_name)
                 except Exception as e:
                     if progress and main_task is not None:
                         # Update the region task to show error
@@ -445,8 +453,7 @@ def perform_scan(
                                 description=f"  ❌ {region}",
                                 completed=progress.tasks[region_tasks[region]].total,
                             )
-                    logger.error("Failed to scan region %s: %s",
-                                 region, str(e))
+                    logger.error("Failed to scan region %s: %s", region, str(e))
                 finally:
                     if progress and main_task is not None:
                         progress.advance(main_task)
