@@ -6,15 +6,14 @@ Comprehensive Test Suite for AWS Service Scanner
 This test suite covers all major functionality of the AWS Service Scanner tool.
 """
 
-import os
-import sys
-import subprocess
 import json
+import os
+import subprocess
+import sys
 import tempfile
 import time
-from pathlib import Path
-from unittest.mock import patch
 import unittest
+from pathlib import Path
 
 # Add the script's directory to the Python path
 script_dir = Path(__file__).parent.absolute()
@@ -24,7 +23,7 @@ if str(script_dir) not in sys.path:
 # Import the scanner module for unit testing
 try:
     import aws_scanner
-    from aws_scanner import get_cache_key, generate_markdown_summary, SUPPORTED_SERVICES
+    from aws_scanner import SUPPORTED_SERVICES, generate_markdown_summary, get_cache_key
 except ImportError as e:
     print(f"Warning: Could not import aws_scanner module: {e}")
     print("Some unit tests will be skipped.")

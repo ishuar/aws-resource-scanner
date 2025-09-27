@@ -49,7 +49,7 @@ def test_imports():
         print("✅ aws_scanner module imports successfully")
 
         # Test services imports
-        from services import scan_ec2, process_ec2_output
+        from services import process_ec2_output, scan_ec2
 
         print("✅ services modules import successfully")
 
