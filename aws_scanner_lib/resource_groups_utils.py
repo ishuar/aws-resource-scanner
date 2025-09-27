@@ -49,7 +49,7 @@ def get_all_tagged_resources_across_services(
         return {}
 
     try:
-        logger.debug("🌐 Discovering resources in %s via Resource Groups API", region)
+        logger.debug("Discovering resources in %s via Resource Groups API", region)
 
         # Use Resource Groups Tagging API WITHOUT ResourceTypeFilters to get ALL resources
         tagging_client = session.client("resourcegroupstaggingapi", region_name=region)
