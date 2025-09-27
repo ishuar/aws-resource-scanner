@@ -9,10 +9,15 @@ Handles scanning of ELB resources including load balancers, listeners, rules, an
 
 from typing import Any, Dict, List
 
-import botocore
-from rich.console import Console
+from botocore.exceptions import BotoCoreError, ClientError
 
-console = Console()
+from aws_scanner_lib.logging import get_logger, get_output_console
+
+# Service logger
+logger = get_logger("elb_service")
+
+# Separate console for user output to avoid interfering with logs and progress bars
+output_console = get_output_console()
 
 
 def scan_elb(
@@ -20,6 +25,14 @@ def scan_elb(
     region: str,
 ) -> Dict[str, Any]:
     """Scan all ELB resources in the specified region without tag filtering."""
+    logger.debug("Starting ELB service scan in region %s", region)
+
+    # Show progress to user on separate console (will not conflict with logging or progress bars)
+    if logger.is_debug_enabled():
+        output_console.print(f"[blue]Scanning ELB resources in {region}[/blue]")
+
+    logger.log_aws_operation("elbv2", "describe_load_balancers", region)
+
     elbv2_client = session.client("elbv2", region_name=region)
     result = {}
     try:
@@ -40,7 +53,7 @@ def scan_elb(
                 lb["Tags"] = (
                     tag_descriptions[0].get("Tags", []) if tag_descriptions else []
                 )
-            except botocore.exceptions.ClientError as e:
+            except ClientError as e:
                 console.print(
                     f"[yellow]Could not get tags for load balancer {lb_arn}: {e}[/yellow]"
                 )
@@ -68,7 +81,7 @@ def scan_elb(
                 tg["Tags"] = (
                     tag_descriptions[0].get("Tags", []) if tag_descriptions else []
                 )
-            except botocore.exceptions.ClientError as e:
+            except ClientError as e:
                 console.print(
                     f"[yellow]Could not get tags for target group {tg_arn}: {e}[/yellow]"
                 )
@@ -96,7 +109,7 @@ def scan_elb(
                     for listener in listeners_response["Listeners"]:
                         listener["LoadBalancerArn"] = lb["LoadBalancerArn"]
                         listeners.append(listener)
-                except botocore.exceptions.ClientError as e:
+                except ClientError as e:
                     console.print(
                         f"[yellow]Could not get listeners for {lb['LoadBalancerArn']}: {e}[/yellow]"
                     )
@@ -121,7 +134,7 @@ def scan_elb(
                     for rule in rules_response["Rules"]:
                         rule["ListenerArn"] = listener["ListenerArn"]
                         rules.append(rule)
-                except botocore.exceptions.ClientError as e:
+                except ClientError as e:
                     console.print(
                         f"[yellow]Could not get rules for {listener['ListenerArn']}: {e}[/yellow]"
                     )
@@ -146,7 +159,7 @@ def scan_elb(
                     listener["LoadBalancerArn"] = lb_arn
                     listener["LoadBalancerName"] = lb["LoadBalancerName"]
                     filtered_listeners.append(listener)
-            except botocore.exceptions.ClientError as e:
+            except ClientError as e:
                 console.print(
                     f"[yellow]Could not get listeners for load balancer {lb_arn}: {e}[/yellow]"
                 )
@@ -167,15 +180,26 @@ def scan_elb(
                     rule["LoadBalancerArn"] = listener["LoadBalancerArn"]
                     rule["LoadBalancerName"] = listener["LoadBalancerName"]
                     filtered_rules.append(rule)
-            except botocore.exceptions.ClientError as e:
+            except ClientError as e:
                 console.print(
                     f"[yellow]Could not get rules for listener {listener_arn}: {e}[/yellow]"
                 )
 
         result["listener_rules"] = filtered_rules
 
-    except botocore.exceptions.BotoCoreError as e:
-        console.print(f"[red]ELB scan failed: {e}[/red]")
+    except BotoCoreError as e:
+        logger.error("ELB scan failed in region %s: %s", region, str(e))
+        logger.log_error_context(e, {"region": region, "operation": "elb_scan"})
+
+    # Log completion with resource count
+    total_resources = sum(len(result.get(key, [])) for key in result.keys())
+    logger.info("ELB scan completed in region %s: %d total resources", region, total_resources)
+
+    # Debug-level details about each resource type
+    for resource_type, resources in result.items():
+        if resources:
+            logger.debug("ELB %s in %s: %d resources", resource_type, region, len(resources))
+
     return result
 
 

@@ -4,19 +4,21 @@ EC2 Service Scanner
 
 Handles scanning of EC2 resources including instances, volumes, security groups, AMIs, and snapshots.
 Prioritizes Resource Groups Tagging API for efficient server-side filtering when tags are available.
-? Documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html
-
+Documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html
 """
 
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List
 
 from botocore.exceptions import BotoCoreError, ClientError
-from rich.console import Console
 
-# Resource Groups API utilities removed - service-agnostic approach handled at main scanner level
+from aws_scanner_lib.logging import get_logger, get_output_console
 
-console = Console()
+# Service logger
+logger = get_logger("ec2_service")
+
+# Separate console for user output to avoid interfering with logs and progress bars
+output_console = get_output_console()
 
 # EC2 operations can be parallelized for better performance
 EC2_MAX_WORKERS = 5  # Parallel workers for different resource types
@@ -109,7 +111,14 @@ def scan_ec2(
 
     Tag-based filtering is handled by the Resource Groups API at the main scanner level.
     """
-    console.print(f"[blue]Scanning EC2 resources in {region}[/blue]")
+    logger.debug("Starting EC2 service scan in region %s", region)
+
+    # Show progress to user on separate console (will not conflict with logging or progress bars)
+    # Show progress only in debug mode to avoid interfering with progress bars
+    if logger.is_debug_enabled():
+        output_console.print(f"[blue]Scanning EC2 resources in {region}[/blue]")
+
+    logger.log_aws_operation("ec2", "describe_multiple", region, parallel_workers=EC2_MAX_WORKERS)
 
     result = {}
     ec2_client = session.client("ec2", region_name=region)
@@ -119,59 +128,51 @@ def scan_ec2(
         filters: List[Dict[str, Any]] = []
 
         # Use ThreadPoolExecutor to parallelize resource scanning
-        with ThreadPoolExecutor(max_workers=EC2_MAX_WORKERS) as executor:
-            # Submit all tasks
-            instances_future = executor.submit(_scan_ec2_instances, ec2_client, filters)
-            volumes_future = executor.submit(_scan_ec2_volumes, ec2_client, filters)
-            security_groups_future = executor.submit(
-                _scan_ec2_security_groups, ec2_client, filters
-            )
-            amis_future = executor.submit(_scan_ec2_amis, ec2_client)
-            snapshots_future = executor.submit(_scan_ec2_snapshots, ec2_client)
+        with logger.timer(f"EC2 parallel scan in {region}"):
+            with ThreadPoolExecutor(max_workers=EC2_MAX_WORKERS) as executor:
+                # Submit all tasks
+                instances_future = executor.submit(_scan_ec2_instances, ec2_client, filters)
+                volumes_future = executor.submit(_scan_ec2_volumes, ec2_client, filters)
+                security_groups_future = executor.submit(
+                    _scan_ec2_security_groups, ec2_client, filters
+                )
+                amis_future = executor.submit(_scan_ec2_amis, ec2_client)
+                snapshots_future = executor.submit(_scan_ec2_snapshots, ec2_client)
 
         # Collect results in the expected dictionary structure
         try:
             result["instances"] = instances_future.result()
         except (ClientError, BotoCoreError) as e:
-            console.print(
-                f"[yellow]Warning: Failed to scan EC2 instances in {region}: {str(e)}[/yellow]"
-            )
+            logger.warning("Failed to scan EC2 instances in region %s: %s", region, str(e))
             result["instances"] = []
 
         try:
             result["volumes"] = volumes_future.result()
         except (ClientError, BotoCoreError) as e:
-            console.print(
-                f"[yellow]Warning: Failed to scan EC2 volumes in {region}: {str(e)}[/yellow]"
-            )
+            logger.warning("Failed to scan EC2 volumes in region %s: %s", region, str(e))
             result["volumes"] = []
 
         try:
             result["security_groups"] = security_groups_future.result()
         except (ClientError, BotoCoreError) as e:
-            console.print(
-                f"[yellow]Warning: Failed to scan EC2 security groups in {region}: {str(e)}[/yellow]"
-            )
+            logger.warning("Failed to scan EC2 security groups in region %s: %s", region, str(e))
             result["security_groups"] = []
 
         try:
             result["amis"] = amis_future.result()
         except (ClientError, BotoCoreError) as e:
-            console.print(
-                f"[yellow]Warning: Failed to scan EC2 AMIs in {region}: {str(e)}[/yellow]"
-            )
+            logger.warning("Failed to scan EC2 AMIs in region %s: %s", region, str(e))
             result["amis"] = []
 
         try:
             result["snapshots"] = snapshots_future.result()
         except (ClientError, BotoCoreError) as e:
-            console.print(
-                f"[yellow]Warning: Failed to scan EC2 snapshots in {region}: {str(e)}[/yellow]"
-            )
+            logger.warning("Failed to scan EC2 snapshots in region %s: %s", region, str(e))
             result["snapshots"] = []
 
     except (ClientError, BotoCoreError) as e:
-        console.print(f"[red]EC2 scan failed for region {region}: {e}[/red]")
+        logger.error("EC2 scan failed for region %s: %s", region, str(e))
+        logger.log_error_context(e, {"service": "ec2", "region": region, "operation": "full_scan"})
         result = {
             "instances": [],
             "volumes": [],
@@ -179,6 +180,15 @@ def scan_ec2(
             "amis": [],
             "snapshots": [],
         }
+
+        # Log scan completion with resource counts
+    total_resources = sum(len(v) for v in result.values())
+    logger.info("EC2 scan completed in region %s: %d total resources", region, total_resources)
+
+    # Debug-level details about each resource type
+    for resource_type, resources in result.items():
+        if resources:
+            logger.debug("EC2 %s in %s: %d resources", resource_type, region, len(resources))
 
     return result
 

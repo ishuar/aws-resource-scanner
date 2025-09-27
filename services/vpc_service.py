@@ -13,13 +13,15 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List
 
 from botocore.exceptions import BotoCoreError, ClientError
-from rich.console import Console  # pyright: ignore[reportMissingImports]
+
+from aws_scanner_lib.logging import get_logger, get_output_console
 
 # Resource Groups API utilities removed - service-agnostic approach handled at main scanner level
 
-console = Console()
+# Service logger
+logger = get_logger("vpc_service")
 
-# VPC operations can be parallelized for better performance
+output_console = get_output_console() # VPC operations can be parallelized for better performance
 VPC_MAX_WORKERS = 4  # Parallel workers for different resource types
 
 
@@ -128,10 +130,15 @@ def scan_vpc(
 
     Tag-based filtering is handled by the Resource Groups API at the main scanner level.
     """
-    console.print(f"[blue]Scanning VPC resources in {region}[/blue]")
+    with logger.timer(f"vpc_scan_{region}"):
+        logger.debug("Starting VPC resource scan in region %s", region)
 
-    result = {}
-    ec2_client = session.client("ec2", region_name=region)
+        # Show progress only in debug mode to avoid interfering with progress bars
+        if logger.is_debug_enabled():
+            output_console.print(f"[blue]Scanning VPC resources in {region}[/blue]")
+
+        result = {}
+        ec2_client = session.client("ec2", region_name=region)
 
     try:
         # No tag filtering - use traditional approach with API-level filters
@@ -162,49 +169,37 @@ def scan_vpc(
         try:
             result["vpcs"] = vpcs_future.result()
         except (ClientError, BotoCoreError) as e:
-            console.print(
-                f"[yellow]Warning: Failed to scan VPCs in {region}: {str(e)}[/yellow]"
-            )
+            logger.warning("Failed to scan VPCs in region %s: %s", region, str(e))
             result["vpcs"] = []
 
         try:
             result["subnets"] = subnets_future.result()
         except (ClientError, BotoCoreError) as e:
-            console.print(
-                f"[yellow]Warning: Failed to scan subnets in {region}: {str(e)}[/yellow]"
-            )
+            logger.warning("Failed to scan subnets in region %s: %s", region, str(e))
             result["subnets"] = []
 
         try:
             result["internet_gateways"] = igws_future.result()
         except (ClientError, BotoCoreError) as e:
-            console.print(
-                f"[yellow]Warning: Failed to scan internet gateways in {region}: {str(e)}[/yellow]"
-            )
+            logger.warning("Failed to scan internet gateways in region %s: %s", region, str(e))
             result["internet_gateways"] = []
 
         try:
             result["route_tables"] = route_tables_future.result()
         except (ClientError, BotoCoreError) as e:
-            console.print(
-                f"[yellow]Warning: Failed to scan route tables in {region}: {str(e)}[/yellow]"
-            )
+            logger.warning("Failed to scan route tables in region %s: %s", region, str(e))
             result["route_tables"] = []
 
         try:
             result["nat_gateways"] = nat_gateways_future.result()
         except (ClientError, BotoCoreError) as e:
-            console.print(
-                f"[yellow]Warning: Failed to scan NAT gateways in {region}: {str(e)}[/yellow]"
-            )
+            logger.warning("Failed to scan NAT gateways in region %s: %s", region, str(e))
             result["nat_gateways"] = []
 
         try:
             result["dhcp_options"] = dhcp_options_future.result()
         except (ClientError, BotoCoreError) as e:
-            console.print(
-                f"[yellow]Warning: Failed to scan DHCP options in {region}: {str(e)}[/yellow]"
-            )
+            logger.warning("Failed to scan DHCP options in region %s: %s", region, str(e))
             result["dhcp_options"] = []
 
         # Handle remaining resources sequentially (lower priority/frequency)
@@ -228,7 +223,16 @@ def scan_vpc(
             pass
 
     except BotoCoreError as e:
-        console.print(f"[red]VPC scan failed: {e}[/red]")
+        logger.error("VPC scan failed in region %s: %s", region, str(e))
+
+    # Log completion with resource count
+    total_resources = sum(len(result.get(key, [])) for key in result.keys())
+    logger.info("VPC scan completed in region %s: %d total resources", region, total_resources)
+
+    # Debug-level details about each resource type
+    for resource_type, resources in result.items():
+        if resources:
+            logger.debug("VPC %s in %s: %d resources", resource_type, region, len(resources))
 
     return result
 
