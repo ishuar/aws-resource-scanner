@@ -13,9 +13,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List
 
 from botocore.exceptions import BotoCoreError, ClientError
-from rich.console import Console
 
-console = Console()
+from aws_scanner_lib.logging import get_logger, get_output_console
+
+# Service logger
+logger = get_logger("ecs_service")
+
+# Separate console for user output to avoid interfering with logs and progress bars
+output_console = get_output_console()
 
 ECS_BATCH_SIZE = 10  # ECS describe_services supports up to 10 services per call
 ECS_TASK_DEF_MAX_WORKERS = (
@@ -42,7 +47,7 @@ def _process_task_definition_parallel(ecs_client: Any, task_def_arn: str) -> Any
             )
             tags = tags_response.get("tags", [])
         except ClientError as e:
-            console.print(
+            output_console.print(
                 f"[yellow]Could not get tags for task definition {full_task_def_arn}: {e}[/yellow]"
             )
             tags = []
@@ -51,7 +56,7 @@ def _process_task_definition_parallel(ecs_client: Any, task_def_arn: str) -> Any
         return task_def
 
     except ClientError as e:
-        console.print(
+        output_console.print(
             f"[yellow]Could not describe task definition {task_def_arn}: {e}[/yellow]"
         )
         return None
@@ -62,6 +67,16 @@ def scan_ecs(
     region: str,
 ) -> Dict[str, Any]:
     """Scan ECS resources in the specified region comprehensively."""
+    logger.debug("Starting ECS service scan in region %s", region)
+
+    # Show progress to user on separate console (will not conflict with logging or progress bars)
+    if logger.is_debug_enabled():
+        output_console.print(f"[blue]Scanning ECS resources in {region}[/blue]")
+
+    logger.log_aws_operation(
+        "ecs", "describe_clusters", region, parallel_workers=ECS_TASK_DEF_MAX_WORKERS
+    )
+
     ecs_client = session.client("ecs", region_name=region)
     result = {}
 
@@ -115,12 +130,12 @@ def scan_ecs(
                             services.append(service)
 
                     except ClientError as e:
-                        console.print(
+                        output_console.print(
                             f"[yellow]Could not describe services in cluster {cluster_name}: {e}[/yellow]"
                         )
 
             except ClientError as e:
-                console.print(
+                output_console.print(
                     f"[yellow]Could not list services in cluster {cluster_name}: {e}[/yellow]"
                 )
 
@@ -175,12 +190,12 @@ def scan_ecs(
                     task_def_arns.extend(latest_two)
 
                 except (ClientError, BotoCoreError) as e:
-                    console.print(
+                    output_console.print(
                         f"[yellow]Could not list task definitions for family {family}: {e}[/yellow]"
                     )
 
         except (ClientError, BotoCoreError) as e:
-            console.print(
+            output_console.print(
                 f"[yellow]Could not list task definition families: {e}[/yellow]"
             )
 
@@ -205,7 +220,7 @@ def scan_ecs(
                             task_definitions.append(result_task_def)
                     except (ClientError, BotoCoreError) as e:
                         task_def_arn = future_to_arn[future]
-                        console.print(
+                        output_console.print(
                             f"[yellow]Error processing task definition {task_def_arn}: {e}[/yellow]"
                         )
 
@@ -219,7 +234,7 @@ def scan_ecs(
                 capacity_providers = response.get("capacityProviders", [])
 
             except (ClientError, BotoCoreError) as e:
-                console.print(
+                output_console.print(
                     f"[yellow]Could not list capacity providers: {e}[/yellow]"
                 )
 
@@ -229,7 +244,22 @@ def scan_ecs(
         result["capacity_providers"] = capacity_providers
 
     except BotoCoreError as e:
-        console.print(f"[red]ECS scan failed: {e}[/red]")
+        logger.error("ECS scan failed in region %s: %s", region, str(e))
+        logger.log_error_context(e, {"region": region, "operation": "ecs_scan"})
+
+    # Log completion with resource count
+    total_resources = sum(len(result.get(key, [])) for key in result.keys())
+    logger.info(
+        "ECS scan completed in region %s: %d total resources", region, total_resources
+    )
+
+    # Debug-level details about each resource type
+    for resource_type, resources in result.items():
+        if resources:
+            logger.debug(
+                "ECS %s in %s: %d resources", resource_type, region, len(resources)
+            )
+
     return result
 
 

@@ -13,9 +13,14 @@ filtering that dramatically improves performance compared to client-side filteri
 from typing import Any, Dict, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
-from rich.console import Console
 
-console = Console()
+from .logging import get_logger, get_output_console
+
+# Service logger
+logger = get_logger("resource_groups")
+
+# Console for user output
+output_console = get_output_console()
 
 
 def get_all_tagged_resources_across_services(
@@ -40,13 +45,11 @@ def get_all_tagged_resources_across_services(
         Dictionary organized by service with all discovered resources
     """
     if not tag_key and not tag_value:
-        console.print(
-            "[dim]No tags specified - Resource Groups API requires tags[/dim]"
-        )
+        logger.debug("No tags specified - Resource Groups API requires tags")
         return {}
 
     try:
-        console.print(f"\n[dim]🌐 Discovering resources in {region}...[/dim]")
+        logger.debug("🌐 Discovering resources in %s via Resource Groups API", region)
 
         # Use Resource Groups Tagging API WITHOUT ResourceTypeFilters to get ALL resources
         tagging_client = session.client("resourcegroupstaggingapi", region_name=region)
@@ -104,7 +107,10 @@ def get_all_tagged_resources_across_services(
         return service_resources
 
     except (ClientError, BotoCoreError) as e:
-        console.print(f"[red]❌ Resource Groups API error in {region}: {e}[/red]")
+        logger.error("Resource Groups API error in %s: %s", region, str(e))
+        logger.log_error_context(
+            e, {"region": region, "operation": "resource_groups_api"}
+        )
         return {}
 
 
@@ -197,7 +203,7 @@ def scan_all_tagged_resources(
         Dictionary with service names as keys, organized for output compatibility
     """
     if not should_use_resource_groups_api(tag_key, tag_value):
-        console.print("[dim]No tags specified for Resource Groups API scan[/dim]")
+        logger.debug("No tags specified for Resource Groups API scan")
         return {}
 
     # Removed verbose logging - handled by main progress bar

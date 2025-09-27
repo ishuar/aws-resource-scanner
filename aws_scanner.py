@@ -27,6 +27,8 @@ from rich.panel import Panel
 from rich.progress import Progress
 from rich.table import Table
 
+# Import logging (using simplified logging)
+from aws_scanner_lib.logging import get_logger
 from aws_scanner_lib.outputs import TABLE_MINIMUM_WIDTH
 
 # Import modular components
@@ -34,6 +36,7 @@ from aws_scanner_lib.scan import scan_region
 
 # Global components
 console = Console()
+logger = get_logger()
 
 # Supported services
 SUPPORTED_SERVICES = ["ec2", "s3", "ecs", "elb", "vpc", "autoscaling"]
@@ -47,8 +50,11 @@ def get_session(profile_name: Optional[str] = None) -> boto3.Session:
     """Get AWS session with thread-safe connection pooling."""
     cache_key = profile_name or "default"
 
+    logger.debug("Requesting AWS session for profile: %s", cache_key)
+
     # First check if session exists (avoid lock if not needed)
     if cache_key in _session_pool:
+        logger.debug("Reusing cached session for profile: %s", cache_key)
         return _session_pool[cache_key]
 
     # Use lock for thread-safe session creation
@@ -56,11 +62,21 @@ def get_session(profile_name: Optional[str] = None) -> boto3.Session:
         # Double-check pattern: verify session wasn't created while waiting for lock
         if cache_key not in _session_pool:
             try:
+                logger.debug("Creating new AWS session for profile: %s", cache_key)
                 session = boto3.Session(profile_name=profile_name)
                 _session_pool[cache_key] = session
+                logger.debug(
+                    "AWS session created and cached for profile: %s", cache_key
+                )
             except ProfileNotFound as e:
+                logger.log_error_context(
+                    e, {"profile": profile_name, "operation": "session_creation"}
+                )
                 raise RuntimeError(f"AWS profile '{profile_name}' not found") from e
             except Exception as e:  # More generic exception handling
+                logger.log_error_context(
+                    e, {"profile": profile_name, "operation": "session_creation"}
+                )
                 raise RuntimeError(f"Failed to create AWS session: {e}") from e
 
     return _session_pool[cache_key]
@@ -76,17 +92,27 @@ def validate_aws_credentials(
         tuple: (is_valid, message)
     """
     try:
+        logger.debug("Validating AWS credentials using STS GetCallerIdentity")
         # Try to get caller identity to validate credentials
         sts_client = session.client("sts")
+
+        logger.log_aws_operation(
+            "sts", "get_caller_identity", "global", profile=profile_name
+        )
         response = sts_client.get_caller_identity()
 
         # Extract account info
         account_id = response.get("Account", "Unknown")
         user_arn = response.get("Arn", "Unknown")
+        user_name = user_arn.split("/")[-1] if user_arn != "Unknown" else "Unknown"
+
+        logger.debug(
+            "Credentials validated - Account: %s, User: %s", account_id, user_name
+        )
 
         return (
             True,
-            f"✅ AWS credentials valid (Account: {account_id}, User: {user_arn.split('/')[-1]})",
+            f"✅ AWS credentials valid (Account: {account_id}, User: {user_name})",
         )
 
     except NoCredentialsError:
@@ -125,12 +151,14 @@ def get_client_with_config(
     return session.client(service_name, region_name=region_name, config=config)
 
 
-def display_banner() -> str:
+def display_banner(debug: bool) -> str:
     """Display fancy ASCII banner with AWS profile information."""
     # Create fancy ASCII banner
     try:
         banner = pyfiglet.figlet_format("AWS Scanner", font="slant")
-        output = f"[bold cyan]{banner}[/bold cyan]"
+        bold_cyan_banner = f"[bold cyan]{banner}[/bold cyan]"
+        bold_green_banner = f"[bold green]{banner}[/bold green]"
+        output = bold_cyan_banner if not debug else bold_green_banner
     except (pyfiglet.FontNotFound, pyfiglet.FigletError, OSError):
         # Fallback if pyfiglet fails
         output = "[bold cyan]╔═══════════════════════════════════════════════════════════╗[/bold cyan]\n"
@@ -195,7 +223,6 @@ def check_and_display_cache_status(
                 title_align="center",
                 border_style="bright_blue",
                 padding=(0, 1),
-                width=TABLE_MINIMUM_WIDTH,
             )
         )
         console.print(
@@ -206,7 +233,9 @@ def check_and_display_cache_status(
     return False
 
 
-def display_region_summaries(all_results: Dict[str, Dict[str, Any]]) -> None:
+def display_region_summaries(
+    all_results: Dict[str, Dict[str, Any]], debug: bool
+) -> None:
     """Display region-wise resource summaries after scanning is complete."""
 
     if not all_results:
@@ -237,9 +266,9 @@ def display_region_summaries(all_results: Dict[str, Dict[str, Any]]) -> None:
         results_table = Table(
             show_header=True,
             header_style="white",
-            border_style="bright_blue",
+            border_style="bright_blue" if not debug else "green",
             expand=False,
-            width=82,
+            min_width=TABLE_MINIMUM_WIDTH,
             box=box.SIMPLE_HEAVY,
         )
         results_table.add_column("Service", style="cyan")
@@ -259,10 +288,8 @@ def display_region_summaries(all_results: Dict[str, Dict[str, Any]]) -> None:
                 results_table,
                 title=f"[bold white]{region_name.upper()}[/bold white]",
                 title_align="center",
-                border_style="bright_blue",
+                border_style="bright_blue" if not debug else "green",
                 padding=(0, 1),
-                # Table width (34) + Panel padding (2*2)
-                width=TABLE_MINIMUM_WIDTH,
             )
         )
 
@@ -281,6 +308,19 @@ def perform_scan(
     shutdown_event: Optional[threading.Event] = None,
 ) -> Dict[str, Dict[str, Any]]:
     """Perform the AWS scanning operation with optional progress reporting."""
+    logger.debug(
+        "Starting perform_scan with %d regions, %d services",
+        len(region_list),
+        len(services),
+    )
+    logger.debug(
+        "Configuration: max_workers=%d, service_workers=%d, use_cache=%s, all_services=%s",
+        max_workers,
+        service_workers,
+        use_cache,
+        all_services,
+    )
+
     all_results = {}
     main_task = None
     region_tasks = {}
@@ -364,9 +404,7 @@ def perform_scan(
             for future in as_completed(future_to_region):
                 # Check for shutdown request before processing each future
                 if shutdown_event and shutdown_event.is_set():
-                    console.print(
-                        "[yellow]Cancelling remaining region scans...[/yellow]"
-                    )
+                    logger.warning("Cancelling remaining region scans")
                     # Cancel all pending futures
                     for pending_future in future_to_region:
                         if not pending_future.done():
@@ -393,9 +431,7 @@ def perform_scan(
                                         region_tasks[region_name]
                                     ].total,
                                 )
-                            console.print(
-                                f"[green]✅ Completed scanning {region_name}[/green]"
-                            )
+                            logger.debug("Completed scanning region %s", region_name)
                     else:
                         if progress and main_task is not None:
                             # Update the region task to show no resources
@@ -407,9 +443,7 @@ def perform_scan(
                                         region_tasks[region_name]
                                     ].total,
                                 )
-                            console.print(
-                                f"[dim yellow]⚪ No resources found in {region_name}[/dim yellow]"
-                            )
+                            logger.info("No resources found in region %s", region_name)
                 except Exception as e:
                     if progress and main_task is not None:
                         # Update the region task to show error
@@ -419,14 +453,14 @@ def perform_scan(
                                 description=f"  ❌ {region}",
                                 completed=progress.tasks[region_tasks[region]].total,
                             )
-                    console.print(f"[red]❌ Failed to scan {region}: {e}[/red]")
+                    logger.error("Failed to scan region %s: %s", region, str(e))
                 finally:
                     if progress and main_task is not None:
                         progress.advance(main_task)
 
         except KeyboardInterrupt:
             # Handle direct KeyboardInterrupt during scanning
-            console.print("[yellow]Keyboard interrupt received. Cancelling...[/yellow]")
+            logger.warning("Keyboard interrupt received - cancelling scans")
             if shutdown_event:
                 shutdown_event.set()
             # Cancel all remaining futures

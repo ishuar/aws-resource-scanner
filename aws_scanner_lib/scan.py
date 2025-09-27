@@ -21,6 +21,12 @@ from rich.console import Console
 # Import cache functions
 from .cache import cache_result, get_cached_result
 
+# Import logging (using simplified logging)
+from .logging import get_logger
+
+# Module-level logger
+logger = get_logger()
+
 # Import service scanners inside functions to avoid circular imports
 # from services import (...)
 
@@ -50,38 +56,68 @@ def scan_all_services_with_tags(
 
     start_time = time.time()
 
-    # Logging handled by progress bar
+    logger.debug("Starting all-services scan in region %s", region)
+    logger.log_aws_operation(
+        "resource-groups",
+        "scan_all_tagged_resources",
+        region,
+        tag_key=tag_key,
+        tag_value=tag_value,
+    )
 
     # Check cache first
     if use_cache:
+        logger.log_cache_operation(
+            "check", f"{region}:all_services:{tag_key}:{tag_value}"
+        )
         cached_result = get_cached_result(region, "all_services", tag_key, tag_value)
         if cached_result is not None:
-            # Cache message now displayed upfront, just return silently
+            logger.log_cache_operation(
+                "hit",
+                f"{region}:all_services",
+                hit=True,
+                resource_count=sum(
+                    len(v) if isinstance(v, list) else 1 for v in cached_result.values()
+                ),
+            )
             scan_duration = time.time() - start_time
             return region, cached_result, scan_duration
 
     try:
-        # Use service-agnostic Resource Groups API scan
-        results = scan_all_tagged_resources(session, region, tag_key, tag_value)
+        with logger.timer(f"All-services scan in {region}"):
+            # Use service-agnostic Resource Groups API scan
+            results = scan_all_tagged_resources(session, region, tag_key, tag_value)
 
         scan_duration = time.time() - start_time
+        resource_count = sum(
+            len(v) if isinstance(v, list) else 1 for v in results.values()
+        )
 
         # Cache the results
         if use_cache and results:
+            logger.log_cache_operation(
+                "store", f"{region}:all_services", resource_count=resource_count
+            )
             cache_result(region, "all_services", results, tag_key, tag_value)
 
-        if results:
-            # Per-region verbose logging removed - overall results shown by main scanner
-            pass
-        else:
-            console.print(
-                f"[dim yellow]⚪ No tagged resources found in {region}[/dim yellow]"
-            )
+        logger.log_scan_progress("all-services", region, resource_count, scan_duration)
+
+        if not results:
+            logger.info("No tagged resources found in region %s", region)
 
         return region, results, scan_duration
 
-    except Exception as e:
-        console.print(f"[red]❌ Failed cross-service scan in {region}: {e}[/red]")
+    except (ClientError, EndpointConnectionError, ConnectTimeoutError) as e:
+        logger.error("Failed cross-service scan in region %s: %s", region, str(e))
+        logger.log_error_context(
+            e,
+            {
+                "region": region,
+                "operation": "all_services_scan",
+                "tag_key": tag_key,
+                "tag_value": tag_value,
+            },
+        )
         return region, {}, time.time() - start_time
 
 
@@ -110,8 +146,12 @@ def retry_with_backoff(func: Any, max_retries: int = 3, base_delay: float = 1) -
             ]:
                 if attempt < max_retries - 1:
                     delay = base_delay * (2**attempt) + random.uniform(0, 1)
-                    console.print(
-                        f"[yellow]Retrying in {delay:.1f}s due to {error_code}[/yellow]"
+                    logger.warning(
+                        "Retrying in %.1fs due to %s (attempt %d/%d)",
+                        delay,
+                        error_code,
+                        attempt + 1,
+                        max_retries,
                     )
                     time.sleep(delay)
                     continue
@@ -119,7 +159,12 @@ def retry_with_backoff(func: Any, max_retries: int = 3, base_delay: float = 1) -
         except (EndpointConnectionError, ConnectTimeoutError) as e:
             if attempt < max_retries - 1:
                 delay = base_delay * (2**attempt) + random.uniform(0, 1)
-                console.print(f"[yellow]Retrying connection in {delay:.1f}s[/yellow]")
+                logger.warning(
+                    "Retrying connection in %.1fs (attempt %d/%d)",
+                    delay,
+                    attempt + 1,
+                    max_retries,
+                )
                 time.sleep(delay)
                 continue
             raise e
@@ -176,9 +221,7 @@ def scan_service(
                 session, region
             )  # No tag filtering in service-specific scan
         else:
-            console.print(
-                f"[yellow]Service scan for '{service}' not implemented yet.[/yellow]"
-            )
+            logger.warning("Service scan for '%s' not implemented yet", service)
             return {}
 
     try:
@@ -191,20 +234,18 @@ def scan_service(
         return cast(Dict[str, Any], result)
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "Unknown")
-        console.print(
-            f"[red]AWS API Error for {service} in {region}: {error_code} - {e}[/red]"
+        logger.error(
+            "AWS API Error for %s in %s: %s - %s", service, region, error_code, str(e)
         )
         return {}
     except EndpointConnectionError as e:
-        console.print(f"[red]Connection Error for {service} in {region}: {e}[/red]")
+        logger.error("Connection Error for %s in %s: %s", service, region, str(e))
         return {}
     except NoCredentialsError as e:
-        console.print(f"[red]Credentials Error for {service} in {region}: {e}[/red]")
+        logger.error("Credentials Error for %s in %s: %s", service, region, str(e))
         return {}
-    except Exception as e:
-        console.print(
-            f"[red]Unexpected error scanning {service} in {region}: {e}[/red]"
-        )
+    except (OSError, RuntimeError, ValueError) as e:
+        logger.error("Unexpected error scanning %s in %s: %s", service, region, str(e))
         return {}
 
 
@@ -223,8 +264,21 @@ def scan_region(
     start_time = time.time()
     region_results = {}
 
+    logger.debug("Starting region scan for %s with %d services", region, len(services))
+    logger.debug(
+        "Service configuration: workers=%d, cache=%s", service_workers, use_cache
+    )
+
     # Limit workers to reasonable bounds
     max_service_workers = min(len(services), max(1, min(service_workers, 10)))
+
+    if max_service_workers != service_workers:
+        logger.debug(
+            "Adjusted service workers from %d to %d for region %s",
+            service_workers,
+            max_service_workers,
+            region,
+        )
 
     with ThreadPoolExecutor(max_workers=max_service_workers) as executor:
         # Submit service scanning tasks
@@ -244,9 +298,7 @@ def scan_region(
         for future in as_completed(future_to_service):
             # Check for shutdown request before processing each service
             if shutdown_event and shutdown_event.is_set():
-                console.print(
-                    f"[yellow]Cancelling remaining services in {region}...[/yellow]"
-                )
+                logger.warning("Cancelling remaining services in region %s", region)
                 # Cancel remaining futures
                 for pending_future in future_to_service:
                     if not pending_future.done():
@@ -268,9 +320,16 @@ def scan_region(
                     service_results_summary[service] = total_resources
                 else:
                     service_results_summary[service] = 0
-            except Exception as e:
-                console.print(
-                    f"[red]    Error scanning {service} in {region}: {e}[/red]"
+            except (
+                ClientError,
+                EndpointConnectionError,
+                ConnectTimeoutError,
+                NoCredentialsError,
+            ) as e:
+                logger.error("Error scanning %s in %s: %s", service, region, str(e))
+                logger.log_error_context(
+                    e,
+                    {"service": service, "region": region, "operation": "service_scan"},
                 )
                 service_results_summary[service] = 0
 
@@ -282,10 +341,18 @@ def scan_region(
     # Calculate and display region scan time
     end_time = time.time()
     scan_duration = end_time - start_time
-    print(
-        f"Region {region} scan completed in {scan_duration:.1f}s\n",
-        file=__import__("sys").stderr,
-        flush=True,
-    )
+
+    # Log region completion
+    total_resources = sum(service_results_summary.values())
+    logger.log_scan_progress("region", region, total_resources, scan_duration)
+
+    if logger.is_debug_enabled():
+        logger.debug("Region %s service breakdown:", region)
+        for service, count in service_results_summary.items():
+            logger.debug("  • %s: %d resources", service, count)
+
+    # Only show region completion in debug mode to avoid interfering with progress
+    if logger.is_debug_enabled():
+        logger.debug("Region %s scan completed in %.1fs", region, scan_duration)
 
     return region, region_results, scan_duration

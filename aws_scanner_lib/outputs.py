@@ -27,7 +27,9 @@ console = Console()
 TABLE_MINIMUM_WIDTH = 86
 
 
-def create_aws_resources_table(flattened_resources: List[Dict[str, Any]]) -> Table:
+def create_aws_resources_table(
+    flattened_resources: List[Dict[str, Any]], debug: bool
+) -> Table:
     """
     Create a standardized AWS resources table with consistent formatting.
 
@@ -38,7 +40,9 @@ def create_aws_resources_table(flattened_resources: List[Dict[str, Any]]) -> Tab
         Table: Rich Table object ready for display
     """
     table = Table(
-        title="AWS Resources", min_width=TABLE_MINIMUM_WIDTH, border_style="bright_blue"
+        title="AWS Resources",
+        border_style="bright_blue" if not debug else "green",
+        min_width=TABLE_MINIMUM_WIDTH,
     )
     table.add_column("Region", style="blue")
     table.add_column("Resource Type", style="yellow")
@@ -190,7 +194,8 @@ def process_generic_service_output(
                     # Create standardized resource entry with unified format
                     flattened_resource = {
                         "region": region,
-                        "resource_type": resource_type,  # Already in service:type format from Resource Groups API
+                        # Already in service:type format from Resource Groups API
+                        "resource_type": resource_type,
                         "resource_id": resource_id or "N/A",
                         "resource_arn": resource_arn or "N/A",
                     }
@@ -229,7 +234,10 @@ def _is_resource_groups_api_data(service_data: Dict[str, Any]) -> bool:
 
 
 def output_results(
-    results: Dict[str, Any], output_file: Path, output_format: str
+    results: Dict[str, Any],
+    output_file: Path,
+    output_format: str,
+    debug: bool,
 ) -> int:
     """Process results using modular output processors and format for output.
 
@@ -287,7 +295,7 @@ def output_results(
         console.print(json.dumps(flattened_resources, indent=2))
     elif output_format == "table":
         # Create and display the standardized table
-        table = create_aws_resources_table(flattened_resources)
+        table = create_aws_resources_table(flattened_resources, debug)
         console.print(table)
 
         # Also save table data as JSON to file
@@ -306,7 +314,7 @@ def output_results(
 
         # Display the table view in terminal as well
         console.print("\n[bold blue]Resource Table View:[/bold blue]")
-        table = create_aws_resources_table(flattened_resources)
+        table = create_aws_resources_table(flattened_resources, debug)
         console.print(table)
 
         # Also display a summary in console
