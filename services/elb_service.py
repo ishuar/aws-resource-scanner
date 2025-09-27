@@ -18,7 +18,6 @@ logger = get_logger("elb_service")
 
 # Separate console for user output to avoid interfering with logs and progress bars
 output_console = get_output_console()
-console = output_console  # Alias for backward compatibility
 
 
 def scan_elb(
@@ -55,7 +54,7 @@ def scan_elb(
                     tag_descriptions[0].get("Tags", []) if tag_descriptions else []
                 )
             except ClientError as e:
-                console.print(
+                output_console.print(
                     f"[yellow]Could not get tags for load balancer {lb_arn}: {e}[/yellow]"
                 )
                 lb["Tags"] = []
@@ -83,7 +82,7 @@ def scan_elb(
                     tag_descriptions[0].get("Tags", []) if tag_descriptions else []
                 )
             except ClientError as e:
-                console.print(
+                output_console.print(
                     f"[yellow]Could not get tags for target group {tg_arn}: {e}[/yellow]"
                 )
                 tg["Tags"] = []
@@ -111,7 +110,7 @@ def scan_elb(
                         listener["LoadBalancerArn"] = lb["LoadBalancerArn"]
                         listeners.append(listener)
                 except ClientError as e:
-                    console.print(
+                    output_console.print(
                         f"[yellow]Could not get listeners for {lb['LoadBalancerArn']}: {e}[/yellow]"
                     )
 
@@ -136,7 +135,7 @@ def scan_elb(
                         rule["ListenerArn"] = listener["ListenerArn"]
                         rules.append(rule)
                 except ClientError as e:
-                    console.print(
+                    output_console.print(
                         f"[yellow]Could not get rules for {listener['ListenerArn']}: {e}[/yellow]"
                     )
 
@@ -161,7 +160,7 @@ def scan_elb(
                     listener["LoadBalancerName"] = lb["LoadBalancerName"]
                     filtered_listeners.append(listener)
             except ClientError as e:
-                console.print(
+                output_console.print(
                     f"[yellow]Could not get listeners for load balancer {lb_arn}: {e}[/yellow]"
                 )
 
@@ -182,7 +181,7 @@ def scan_elb(
                     rule["LoadBalancerName"] = listener["LoadBalancerName"]
                     filtered_rules.append(rule)
             except ClientError as e:
-                console.print(
+                output_console.print(
                     f"[yellow]Could not get rules for listener {listener_arn}: {e}[/yellow]"
                 )
 
