@@ -35,7 +35,7 @@
 # --------------------------
 # 1. Configure AWS: export AWS_PROFILE=your-profile-name
 # 2. Login to AWS: aws sso login --profile $AWS_PROFILE
-# 3. Test the tool: poetry run python aws-scanner --help
+# 3. Test the tool: poetry run aws-scanner scan --help
 #
 # SUPPORTED SYSTEMS:
 # ------------------
@@ -447,7 +447,7 @@ run_tests() {
     else
         print_warning "Test script not found, skipping tests"
         print_info "Testing tool manually"
-        if poetry run python aws-scanner --help >/dev/null 2>&1; then
+        if poetry run aws-scanner --help >/dev/null 2>&1; then
             print_success "Tool is working correctly"
         else
             print_error "Tool verification failed"
@@ -514,22 +514,22 @@ display_usage() {
     echo "     aws sso login --profile \$AWS_PROFILE"
     echo
     echo "  2. Run the tool:"
-    echo "     poetry run python aws-scanner --help"
-    echo "     poetry run python aws-scanner --service s3 --regions us-east-1"
+    echo "     poetry run aws-scanner --help"
+    echo "     poetry run aws-scanner scan --service s3 --regions us-east-1"
     echo
 
     print_message "CYAN" "📖 Common Usage Examples:"
     echo "  • Scan specific services and regions:"
-    echo "    poetry run python aws-scanner --service s3 --regions us-east-1,eu-west-1"
+    echo "    poetry run aws-scanner scan --service s3 --regions us-east-1,eu-west-1"
     echo
     echo "  • Filter by tags:"
-    echo "    poetry run python aws-scanner --tag-key Environment --tag-value Production"
+    echo "    poetry run aws-scanner scan --tag-key Environment --tag-value Production"
     echo
     echo "  • Enable refresh mode (continuous monitoring):"
-    echo "    poetry run python aws-scanner --refresh --refresh-interval 30"
+    echo "    poetry run aws-scanner scan --refresh --refresh-interval 30"
     echo
     echo "  • Export to different formats:"
-    echo "    poetry run python aws-scanner --format json --output results.json"
+    echo "    poetry run aws-scanner scan --format json --output results.json"
     echo
 
     print_message "CYAN" "🔧 Available Output Formats:"

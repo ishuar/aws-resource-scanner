@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/ishuar/aws-resource-scanner/main.svg)](https://results.pre-commit.ci/latest/github/ishuar/aws-resource-scanner/main)
 
 A comprehensive AWS multi-service scanner with tag-based filtering, parallel processing, and advanced optimization features. This tool enables efficient discovery and analysis of AWS resources across multiple regions and services with intelligent caching and rich output formats.
 
