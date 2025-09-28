@@ -464,8 +464,8 @@ def scan_command(
         with Live(
             Panel(
                 progress_display,
-                title=f"[bold blue]Scanning Progress (Scan #{scan_count})[/bold blue]",
-                border_style="blue",
+                title=f"[bold white]Scanning Progress (Scan #{scan_count})[/bold white]",
+                border_style="bright_blue" if not debug else "green",
                 padding=(0, 1),
             ),
             console=progress_console,
