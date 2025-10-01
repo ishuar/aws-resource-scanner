@@ -190,7 +190,8 @@ def scan_all_tagged_resources(
     """
     MAIN FUNCTION: Service-agnostic scanning using Resource Groups Tagging API.
 
-    This function finds ALL resources across ALL AWS services that match the tag criteria.
+    This function finds ALL resources across ALL AWS services that match the tag criteria,
+    with special handling for Auto Scaling Groups which are not supported by Resource Groups API.
     It returns results in a format compatible with the existing output system.
 
     Args:
@@ -206,30 +207,90 @@ def scan_all_tagged_resources(
         logger.debug("No tags specified for Resource Groups API scan")
         return {}
 
-    # Removed verbose logging - handled by main progress bar
+    # Import here to avoid circular imports
+    from concurrent.futures import ThreadPoolExecutor
 
-    # Get all tagged resources across services
-    all_resources = get_all_tagged_resources_across_services(
-        session, region, tag_key, tag_value
-    )
+    from services.autoscaling_service import scan_autoscaling
 
-    if not all_resources:
-        return {}
+    logger.debug("Starting hybrid scan: Resource Groups API + Auto Scaling")
 
-    # Convert to output-compatible format
     output_results: Dict[str, Any] = {}
 
-    for service_name, resource_types in all_resources.items():
-        if service_name not in output_results:
-            output_results[service_name] = {}
-
-        for resource_type, resources in resource_types.items():
-            # Use a consistent naming scheme for resource type keys
-            resource_key = (
-                f"{resource_type}s"
-                if not resource_type.endswith("s")
-                else resource_type
+    try:
+        # Use ThreadPoolExecutor to run Resource Groups API and Auto Scaling scans in parallel
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            # Submit Resource Groups API scan
+            rg_future = executor.submit(
+                get_all_tagged_resources_across_services,
+                session,
+                region,
+                tag_key,
+                tag_value,
             )
-            output_results[service_name][resource_key] = resources
+
+            # Submit Auto Scaling scan with tag filtering
+            asg_future = executor.submit(
+                scan_autoscaling, session, region, tag_key, tag_value
+            )
+
+            # Collect Resource Groups API results
+            try:
+                all_resources = rg_future.result()
+                logger.debug("Resource Groups API scan completed")
+
+                # Convert Resource Groups results to output-compatible format
+                for service_name, resource_types in all_resources.items():
+                    if service_name not in output_results:
+                        output_results[service_name] = {}
+
+                    for resource_type, resources in resource_types.items():
+                        # Use a consistent naming scheme for resource type keys
+                        resource_key = (
+                            f"{resource_type}s"
+                            if not resource_type.endswith("s")
+                            else resource_type
+                        )
+                        output_results[service_name][resource_key] = resources
+
+            except (ClientError, BotoCoreError, OSError, RuntimeError) as e:
+                logger.warning("Resource Groups API scan failed: %s", str(e))
+
+            # Collect Auto Scaling results
+            try:
+                asg_results = asg_future.result()
+                logger.debug("Auto Scaling scan completed")
+
+                # Add Auto Scaling results to output if any resources found
+                if asg_results and any(asg_results.values()):
+                    if "autoscaling" not in output_results:
+                        output_results["autoscaling"] = {}
+
+                    # Add each resource type from Auto Scaling scan
+                    for resource_type, resources in asg_results.items():
+                        if resources:  # Only add non-empty resource lists
+                            output_results["autoscaling"][resource_type] = resources
+
+            except (ClientError, BotoCoreError, OSError, RuntimeError) as e:
+                logger.warning("Auto Scaling tag-filtered scan failed: %s", str(e))
+
+    except (ClientError, BotoCoreError, OSError, RuntimeError) as e:
+        logger.error("Hybrid scan failed: %s", str(e))
+        logger.log_error_context(
+            e, {"region": region, "operation": "hybrid_tagged_scan"}
+        )
+
+    # Log summary of hybrid scan results
+    total_services = len(output_results)
+    total_resources = 0
+    for service_data in output_results.values():
+        for resource_list in service_data.values():
+            if isinstance(resource_list, list):
+                total_resources += len(resource_list)
+
+    logger.debug(
+        "Hybrid scan completed: %d services, %d total resources",
+        total_services,
+        total_resources,
+    )
 
     return output_results

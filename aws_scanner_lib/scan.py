@@ -217,9 +217,9 @@ def scan_service(
                 session, region
             )  # No tag filtering in service-specific scan
         elif service == "autoscaling":
-            return scan_autoscaling(
-                session, region
-            )  # No tag filtering in service-specific scan
+            # Auto Scaling supports tag filtering even in service-specific scan
+            # because resourcegroupapi does not support ASG
+            return scan_autoscaling(session, region, tag_key, tag_value)
         else:
             logger.warning("Service scan for '%s' not implemented yet", service)
             return {}
