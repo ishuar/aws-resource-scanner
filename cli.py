@@ -755,6 +755,10 @@ def _handle_dry_run(
 
     if tag_key and tag_value:
         console.print(f"  • [bold]Tag filtering:[/bold] {tag_key}={tag_value}")
+    elif tag_key:
+        console.print(f"  • [bold]Tag filtering:[/bold] {tag_key}=* (any value)")
+    elif tag_value:
+        console.print(f"  • [bold]Tag filtering:[/bold] *={tag_value} (any key)")
     else:
         console.print("  • [bold]Tag filtering:[/bold] None (all resources)")
 
