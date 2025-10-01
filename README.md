@@ -56,7 +56,7 @@ A comprehensive AWS multi-service scanner with tag-based filtering, parallel pro
 | **Auto Scaling** | Auto Scaling Groups                                                                                                     | ASGs, Launch Configurations, Launch Templates                     |
 | **ELB**          | Elastic Load Balancing                                                                                                  | Application Load Balancers, Network Load Balancers, Target Groups |
 
-> **📚 Architecture Details**: For detailed information about the scanning architecture and service implementation patterns, see [Architecture Documentation](docs/Architecture.md).
+> **📚 Architecture Details**: For detailed information about the scanning architecture and service implementation patterns, see [Architecture Documentation](docs/aws-scanner-book.md).
 
 ## 📋 Prerequisites
 
