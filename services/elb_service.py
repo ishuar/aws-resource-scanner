@@ -87,105 +87,43 @@ def scan_elb(
                 )
                 tg["Tags"] = []
 
-        # Listeners (get listeners for all load balancers)
+        # Listeners (paginated, annotated with their load balancer)
         listeners = []
-        for lb in load_balancers:
-            try:
-                paginator = elbv2_client.get_paginator("describe_listeners")
-                page_iterator = paginator.paginate(
-                    LoadBalancerArn=lb["LoadBalancerArn"]
-                )
-
-                for page in page_iterator:
-                    for listener in page["Listeners"]:
-                        listener["LoadBalancerArn"] = lb["LoadBalancerArn"]
-                        listeners.append(listener)
-            except Exception:
-                # Fallback to non-paginated call
-                try:
-                    listeners_response = elbv2_client.describe_listeners(
-                        LoadBalancerArn=lb["LoadBalancerArn"]
-                    )
-                    for listener in listeners_response["Listeners"]:
-                        listener["LoadBalancerArn"] = lb["LoadBalancerArn"]
-                        listeners.append(listener)
-                except ClientError as e:
-                    output_console.print(
-                        f"[yellow]Could not get listeners for {lb['LoadBalancerArn']}: {e}[/yellow]"
-                    )
-
-        # Rules (get rules for listeners)
-        rules = []
-        for listener in listeners:
-            try:
-                paginator = elbv2_client.get_paginator("describe_rules")
-                page_iterator = paginator.paginate(ListenerArn=listener["ListenerArn"])
-
-                for page in page_iterator:
-                    for rule in page["Rules"]:
-                        rule["ListenerArn"] = listener["ListenerArn"]
-                        rules.append(rule)
-            except Exception:
-                # Fallback to non-paginated call
-                try:
-                    rules_response = elbv2_client.describe_rules(
-                        ListenerArn=listener["ListenerArn"]
-                    )
-                    for rule in rules_response["Rules"]:
-                        rule["ListenerArn"] = listener["ListenerArn"]
-                        rules.append(rule)
-                except ClientError as e:
-                    output_console.print(
-                        f"[yellow]Could not get rules for {listener['ListenerArn']}: {e}[/yellow]"
-                    )
-
-        result["load_balancers"] = load_balancers
-        result["target_groups"] = target_groups
-        result["listeners"] = listeners
-        result["rules"] = rules
-
-        # Listeners
-        filtered_listeners = []
         for lb in load_balancers:
             lb_arn = lb["LoadBalancerArn"]
             try:
-                listeners_response = elbv2_client.describe_listeners(
-                    LoadBalancerArn=lb_arn
-                )
-                listeners = listeners_response.get("Listeners", [])
-
-                for listener in listeners:
-                    # Add reference to load balancer
-                    listener["LoadBalancerArn"] = lb_arn
-                    listener["LoadBalancerName"] = lb["LoadBalancerName"]
-                    filtered_listeners.append(listener)
+                paginator = elbv2_client.get_paginator("describe_listeners")
+                for page in paginator.paginate(LoadBalancerArn=lb_arn):
+                    for listener in page["Listeners"]:
+                        listener["LoadBalancerArn"] = lb_arn
+                        listener["LoadBalancerName"] = lb["LoadBalancerName"]
+                        listeners.append(listener)
             except ClientError as e:
                 output_console.print(
                     f"[yellow]Could not get listeners for load balancer {lb_arn}: {e}[/yellow]"
                 )
 
-        result["listeners"] = filtered_listeners
-
-        # Listener Rules
-        filtered_rules = []
-        for listener in filtered_listeners:
+        # Listener Rules (paginated, annotated with listener and load balancer)
+        listener_rules = []
+        for listener in listeners:
             listener_arn = listener["ListenerArn"]
             try:
-                rules_response = elbv2_client.describe_rules(ListenerArn=listener_arn)
-                rules = rules_response.get("Rules", [])
-
-                for rule in rules:
-                    # Add reference to listener
-                    rule["ListenerArn"] = listener_arn
-                    rule["LoadBalancerArn"] = listener["LoadBalancerArn"]
-                    rule["LoadBalancerName"] = listener["LoadBalancerName"]
-                    filtered_rules.append(rule)
+                paginator = elbv2_client.get_paginator("describe_rules")
+                for page in paginator.paginate(ListenerArn=listener_arn):
+                    for rule in page["Rules"]:
+                        rule["ListenerArn"] = listener_arn
+                        rule["LoadBalancerArn"] = listener["LoadBalancerArn"]
+                        rule["LoadBalancerName"] = listener["LoadBalancerName"]
+                        listener_rules.append(rule)
             except ClientError as e:
                 output_console.print(
                     f"[yellow]Could not get rules for listener {listener_arn}: {e}[/yellow]"
                 )
 
-        result["listener_rules"] = filtered_rules
+        result["load_balancers"] = load_balancers
+        result["target_groups"] = target_groups
+        result["listeners"] = listeners
+        result["listener_rules"] = listener_rules
 
     except BotoCoreError as e:
         logger.error("ELB scan failed in region %s: %s", region, str(e))
