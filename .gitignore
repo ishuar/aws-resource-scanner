@@ -8,6 +8,9 @@
 /csv
 /json
 
+# pytest junit output for Codecov test analytics
+junit.xml
+
 # configuration files
 .envrc
 
