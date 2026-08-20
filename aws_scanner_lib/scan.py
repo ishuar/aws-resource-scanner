@@ -17,6 +17,8 @@ from botocore.exceptions import (
     NoCredentialsError,
 )
 
+from services.registry import SERVICES, SUPPORTED_SERVICES
+
 # Import cache functions
 from .cache import cache_result, get_cached_result
 
@@ -25,12 +27,6 @@ from .logging import get_logger
 
 # Module-level logger
 logger = get_logger()
-
-# Import service scanners inside functions to avoid circular imports
-# from services import (...)
-
-# Supported services for traditional scanning
-SUPPORTED_SERVICES = ["ec2", "s3", "ecs", "elb", "vpc", "autoscaling"]
 
 
 def scan_all_services_with_tags(
@@ -184,41 +180,13 @@ def scan_service(
             return cached_result
 
     def _do_scan() -> Dict[str, Any]:
-        # Import service scanners here to avoid circular imports
-        from services import (
-            scan_autoscaling,
-            scan_ec2,
-            scan_ecs,
-            scan_elb,
-            scan_s3,
-            scan_vpc,
-        )
-
-        if service == "ec2":
-            return scan_ec2(
-                session, region
-            )  # No tag filtering in service-specific scan
-        elif service == "s3":
-            return scan_s3(session, region)  # No tag filtering in service-specific scan
-        elif service == "ecs":
-            return scan_ecs(
-                session, region
-            )  # No tag filtering in service-specific scan
-        elif service == "elb":
-            return scan_elb(
-                session, region
-            )  # No tag filtering in service-specific scan
-        elif service == "vpc":
-            return scan_vpc(
-                session, region
-            )  # No tag filtering in service-specific scan
-        elif service == "autoscaling":
-            # Auto Scaling supports tag filtering even in service-specific scan
-            # because resourcegroupapi does not support ASG
-            return scan_autoscaling(session, region, tag_key, tag_value)
-        else:
+        registration = SERVICES.get(service)
+        if registration is None:
             logger.warning("Service scan for '%s' not implemented yet", service)
             return {}
+        if registration.accepts_tags:
+            return registration.scan(session, region, tag_key, tag_value)
+        return registration.scan(session, region)
 
     try:
         result = retry_with_backoff(_do_scan)
