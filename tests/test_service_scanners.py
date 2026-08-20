@@ -135,6 +135,70 @@ class TestScanVpc:
         # Creating a VPC always creates a main route table.
         assert any(rt["VpcId"] == vpc_id for rt in result["route_tables"])
 
+    def test_results_beyond_the_first_page_are_included(self) -> None:
+        # AWS truncates describe_* responses; the scanner must paginate.
+        # This fake session answers raw describe calls with page 1 only
+        # (plus a NextToken) while its paginator yields both pages — so the
+        # page-2 resources below only show up if the scanner paginates.
+        pages = {
+            "describe_vpcs": ("Vpcs", "VpcId", "vpc"),
+            "describe_subnets": ("Subnets", "SubnetId", "subnet"),
+            "describe_nat_gateways": ("NatGateways", "NatGatewayId", "nat"),
+            "describe_internet_gateways": (
+                "InternetGateways",
+                "InternetGatewayId",
+                "igw",
+            ),
+            "describe_route_tables": ("RouteTables", "RouteTableId", "rtb"),
+            "describe_dhcp_options": ("DhcpOptions", "DhcpOptionsId", "dopt"),
+            "describe_vpc_peering_connections": (
+                "VpcPeeringConnections",
+                "VpcPeeringConnectionId",
+                "pcx",
+            ),
+            "describe_vpc_endpoints": ("VpcEndpoints", "VpcEndpointId", "vpce"),
+        }
+
+        def page(op: str, n: int) -> Any:
+            key, id_field, prefix = pages[op]
+            return {key: [{id_field: f"{prefix}-page{n}"}]}
+
+        class FakePaginator:
+            def __init__(self, op: str) -> None:
+                self.op = op
+
+            def paginate(self, **_kwargs: Any) -> Any:
+                return iter([page(self.op, 1), page(self.op, 2)])
+
+        class FakeEC2Client:
+            def get_paginator(self, op: str) -> FakePaginator:
+                return FakePaginator(op)
+
+            def __getattr__(self, op: str) -> Any:
+                if op not in pages:
+                    raise AttributeError(op)
+                return lambda **_kwargs: {**page(op, 1), "NextToken": "more"}
+
+        class FakeSession:
+            def client(self, *_args: Any, **_kwargs: Any) -> FakeEC2Client:
+                return FakeEC2Client()
+
+        result = scan_vpc(FakeSession(), REGION)
+
+        for resource_key, (_, id_field, prefix) in [
+            ("vpcs", pages["describe_vpcs"]),
+            ("subnets", pages["describe_subnets"]),
+            ("nat_gateways", pages["describe_nat_gateways"]),
+            ("internet_gateways", pages["describe_internet_gateways"]),
+            ("route_tables", pages["describe_route_tables"]),
+            ("dhcp_options", pages["describe_dhcp_options"]),
+        ]:
+            ids = [r[id_field] for r in result[resource_key]]
+            assert ids == [f"{prefix}-page1", f"{prefix}-page2"], (
+                resource_key,
+                ids,
+            )
+
 
 class TestScanElb:
     def _create_alb(self, aws_session: Any) -> Any:
