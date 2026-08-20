@@ -406,64 +406,6 @@ class AWSLogger:
             error_msg += f" (Context: {context_str})"
         self.logger.error(error_msg, stacklevel=2)
 
-    def log_boto3_api_call(
-        self, service: str, method: str, region: str, **kwargs: Any
-    ) -> None:
-        """
-        Log boto3 API calls to AWS with request details.
-
-        Note: This method is ready for use but not currently called.
-        To use: logger.log_boto3_api_call('ec2', 'describe_instances', 'us-east-1', **params)
-        """
-        params = []
-        for key, value in kwargs.items():
-            if key in ["response_code", "response_time", "error"]:
-                continue
-            params.append(f"{key}={value}")
-
-        param_str = f"({', '.join(params)})" if params else ""
-
-        # Log the outgoing request
-        self.logger.debug(
-            "→ AWS %s.%s%s [%s]", service, method, param_str, region, stacklevel=2
-        )
-
-    def log_boto3_response(
-        self,
-        service: str,
-        method: str,
-        region: str,
-        response_code: int = 200,
-        response_time: Optional[float] = None,
-        error: Optional[str] = None,
-    ) -> None:
-        """
-        Log boto3 API response from AWS.
-
-        Note: This method is ready for use but not currently called.
-        To use: logger.log_boto3_response('ec2', 'describe_instances', 'us-east-1', 200, 0.123)
-        """
-        if error:
-            self.logger.debug(
-                "← AWS %s.%s [%s] ❌ ERROR: %s",
-                service,
-                method,
-                region,
-                error,
-                stacklevel=2,
-            )
-        else:
-            timing = f" ({response_time:.2f}s)" if response_time else ""
-            self.logger.debug(
-                "← AWS %s.%s [%s] ✅ %d%s",
-                service,
-                method,
-                region,
-                response_code,
-                timing,
-                stacklevel=2,
-            )
-
 
 # Global logger instance
 _aws_logger: Optional[AWSLogger] = None

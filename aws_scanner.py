@@ -12,8 +12,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable, Dict, List, Optional
 
 import boto3
-import botocore
-import botocore.config
 import pyfiglet
 from botocore.exceptions import (
     ClientError,
@@ -136,19 +134,6 @@ def validate_aws_credentials(
 
     except Exception as e:
         return False, f"❌ Unexpected error validating credentials: {e}"
-
-
-def get_client_with_config(
-    session: boto3.Session, service_name: str, region_name: str
-) -> Any:
-    """Get AWS client with optimized configuration."""
-    config = botocore.config.Config(
-        max_pool_connections=50,  # Increase connection pool size
-        retries={"max_attempts": 3, "mode": "adaptive"},  # Built-in retry
-        read_timeout=60,
-        connect_timeout=10,
-    )
-    return session.client(service_name, region_name=region_name, config=config)
 
 
 def display_banner(debug: bool) -> str:
