@@ -11,7 +11,11 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
-from aws_scanner_lib.outputs import generate_markdown_summary, output_results
+from aws_scanner_lib.outputs import (
+    compare_with_existing,
+    generate_markdown_summary,
+    output_results,
+)
 
 REGION = "eu-central-1"
 
@@ -163,6 +167,38 @@ class TestOutputResults:
         # Nothing extractable: identity fields degrade to N/A, not a crash.
         assert record["resource_id"] == "N/A"
         assert record["resource_arn"] == "N/A"
+
+
+class TestCompareWithExisting:
+    """--compare diffs a new scan against the JSON file a previous scan wrote."""
+
+    def test_identical_rescan_reports_no_changes(
+        self, tmp_path: Path, capsys: Any
+    ) -> None:
+        out = tmp_path / "scan.json"
+        output_results(traditional_results(), out, "json", debug=False)
+        capsys.readouterr()  # discard output_results noise
+
+        compare_with_existing(out, traditional_results())
+
+        assert "No changes detected" in capsys.readouterr().out
+
+    def test_changed_scan_reports_changes(self, tmp_path: Path, capsys: Any) -> None:
+        out = tmp_path / "scan.json"
+        output_results(traditional_results(), out, "json", debug=False)
+        capsys.readouterr()
+
+        changed = traditional_results()
+        changed[REGION]["s3"]["buckets"].append({"Name": "bucket-new"})
+        compare_with_existing(out, changed)
+
+        assert "Changes detected" in capsys.readouterr().out
+
+    def test_missing_file_is_a_quiet_no_op(self, tmp_path: Path, capsys: Any) -> None:
+        compare_with_existing(tmp_path / "never-written.json", traditional_results())
+        captured = capsys.readouterr().out
+        assert "Changes detected" not in captured
+        assert "No changes detected" not in captured
 
 
 class TestMarkdownSummary:

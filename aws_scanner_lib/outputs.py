@@ -226,19 +226,9 @@ def _is_resource_groups_api_data(service_data: Dict[str, Any]) -> bool:
     return False
 
 
-def output_results(
-    results: Dict[str, Any],
-    output_file: Path,
-    output_format: str,
-    debug: bool,
-) -> int:
-    """Process results using modular output processors and format for output.
-
-    Returns:
-        int: The total number of flattened resources found.
-    """
-
-    # Flatten results into a list of resources with the required columns
+def flatten_results(results: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Flatten nested {region: {service: data}} scan results into the
+    standardized resource-record list every output format consumes."""
     flattened_resources: List[Dict[str, Any]] = []
 
     for region, services in results.items():
@@ -267,6 +257,22 @@ def output_results(
                     process_generic_service_output(
                         service_data, region, flattened_resources
                     )
+
+    return flattened_resources
+
+
+def output_results(
+    results: Dict[str, Any],
+    output_file: Path,
+    output_format: str,
+    debug: bool,
+) -> int:
+    """Process results using modular output processors and format for output.
+
+    Returns:
+        int: The total number of flattened resources found.
+    """
+    flattened_resources = flatten_results(results)
 
     # Ensure output directory exists before writing files
     ensure_output_directory(output_file)
@@ -326,13 +332,17 @@ def output_results(
 
 
 def compare_with_existing(output_file: Path, new_data: Dict[str, Any]) -> None:
-    """Compare new scan results with existing file to detect changes."""
+    """Compare new scan results with existing file to detect changes.
+
+    The file on disk holds the flattened resource list written by
+    output_results, so the new nested results are flattened the same way
+    before diffing — like against like.
+    """
     if output_file.exists():
-        # Import DeepDiff only when needed to avoid circular import issues
         from deepdiff import DeepDiff
 
         existing_data = json.loads(output_file.read_text())
-        diff = DeepDiff(existing_data, new_data, ignore_order=True)
+        diff = DeepDiff(existing_data, flatten_results(new_data), ignore_order=True)
         if not diff:
             console.print("[green]No changes detected since last scan.[/green]")
         else:
