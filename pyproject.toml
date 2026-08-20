@@ -5,10 +5,10 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "aws-resource-scanner"
-version = "1.0.0"
+version = "0.0.1"
 description = "AWS Multi-Service Scanner with tag-based filtering and advanced optimizations"
 authors = [
-    {name = "Ishan Sharma", email = "ishansharma887@gmail.com"}
+    {name = "Ishan Sharma"}
 ]
 readme = "README.md"
 license = "MIT"
@@ -41,8 +41,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ishuar/aws-service-scanner"
-Repository = "https://github.com/ishuar/aws-service-scanner/tree/main"
+Homepage = "https://github.com/ishuar/aws-resource-scanner"
+Repository = "https://github.com/ishuar/aws-resource-scanner"
 
 [project.scripts]
 aws-scanner = "cli:app"
