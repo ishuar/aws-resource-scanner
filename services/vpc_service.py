@@ -14,6 +14,7 @@ from typing import Any, Dict, List
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from aws_scanner_lib.clients import get_scan_client
 from aws_scanner_lib.logging import get_logger, get_output_console
 
 # Resource Groups API utilities removed - service-agnostic approach handled at main scanner level
@@ -110,7 +111,7 @@ def scan_vpc(
             output_console.print(f"[blue]Scanning VPC resources in {region}[/blue]")
 
         result = {}
-        ec2_client = session.client("ec2", region_name=region)
+        ec2_client = get_scan_client(session, "ec2", region)
 
     try:
         # No tag filtering - use traditional approach with API-level filters

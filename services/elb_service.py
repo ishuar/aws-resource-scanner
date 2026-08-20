@@ -11,6 +11,7 @@ from typing import Any, Dict, List
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from aws_scanner_lib.clients import get_scan_client
 from aws_scanner_lib.logging import get_logger, get_output_console
 
 # Service logger
@@ -33,7 +34,7 @@ def scan_elb(
 
     logger.log_aws_operation("elbv2", "describe_load_balancers", region)
 
-    elbv2_client = session.client("elbv2", region_name=region)
+    elbv2_client = get_scan_client(session, "elbv2", region)
     result = {}
     try:
         # Load Balancers (ALB/NLB) with pagination

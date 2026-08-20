@@ -14,6 +14,7 @@ from typing import Any, Dict, List
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from aws_scanner_lib.clients import get_scan_client
 from aws_scanner_lib.logging import get_logger, get_output_console
 
 # Service logger
@@ -77,7 +78,7 @@ def scan_ecs(
         "ecs", "describe_clusters", region, parallel_workers=ECS_TASK_DEF_MAX_WORKERS
     )
 
-    ecs_client = session.client("ecs", region_name=region)
+    ecs_client = get_scan_client(session, "ecs", region)
     result = {}
 
     try:
