@@ -16,7 +16,6 @@ from botocore.exceptions import (
     EndpointConnectionError,
     NoCredentialsError,
 )
-from rich.console import Console
 
 # Import cache functions
 from .cache import cache_result, get_cached_result
@@ -29,9 +28,6 @@ logger = get_logger()
 
 # Import service scanners inside functions to avoid circular imports
 # from services import (...)
-
-
-console = Console()
 
 # Supported services for traditional scanning
 SUPPORTED_SERVICES = ["ec2", "s3", "ecs", "elb", "vpc", "autoscaling"]
