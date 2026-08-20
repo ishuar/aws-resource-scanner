@@ -31,7 +31,6 @@ from rich.table import Table
 
 # Import core business logic functions
 from aws_scanner import (
-    SUPPORTED_SERVICES,
     check_and_display_cache_status,
     display_banner,
     display_region_summaries,
@@ -54,6 +53,9 @@ from aws_scanner_lib.outputs import (
     compare_with_existing,
     output_results,
 )
+
+# Single source of truth for scannable services
+from services.registry import SUPPORTED_SERVICES
 
 # Global AWS profile (module-level constant)
 aws_profile = os.environ.get("AWS_PROFILE", "default")

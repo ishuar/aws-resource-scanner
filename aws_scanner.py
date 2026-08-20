@@ -36,9 +36,6 @@ from aws_scanner_lib.scan import scan_region
 console = Console()
 logger = get_logger()
 
-# Supported services
-SUPPORTED_SERVICES = ["ec2", "s3", "ecs", "elb", "vpc", "autoscaling"]
-
 # Thread-safe session pool for connection reuse
 _session_pool: Dict[str, boto3.Session] = {}
 _session_pool_lock = threading.Lock()

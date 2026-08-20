@@ -13,14 +13,7 @@ from typing import Any, Dict, List
 from rich.console import Console
 from rich.table import Table
 
-from services import (
-    process_autoscaling_output,
-    process_ec2_output,
-    process_ecs_output,
-    process_elb_output,
-    process_s3_output,
-    process_vpc_output,
-)
+from services.registry import SERVICES
 
 console = Console()
 # Minimum width for tables to ensure readability
@@ -264,18 +257,9 @@ def output_results(
                 )
             else:
                 # Traditional API data goes through service-specific processors
-                if service_name == "ec2":
-                    process_ec2_output(service_data, region, flattened_resources)
-                elif service_name == "s3":
-                    process_s3_output(service_data, region, flattened_resources)
-                elif service_name == "ecs":
-                    process_ecs_output(service_data, region, flattened_resources)
-                elif service_name == "elb":
-                    process_elb_output(service_data, region, flattened_resources)
-                elif service_name == "vpc":
-                    process_vpc_output(service_data, region, flattened_resources)
-                elif service_name == "autoscaling":
-                    process_autoscaling_output(
+                registration = SERVICES.get(service_name)
+                if registration is not None:
+                    registration.process_output(
                         service_data, region, flattened_resources
                     )
                 else:
