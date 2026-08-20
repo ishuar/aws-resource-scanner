@@ -61,6 +61,7 @@ black = "^25.7.0"
 flake8 = "^6.0.0"
 mypy = "^1.18.0"
 pre-commit = "^4.3.0"
+moto = "^5.2.2"
 
 [tool.black]
 line-length = 88
@@ -109,18 +110,25 @@ files = [
           'aws_scanner_lib/*.py',
           'services/*.py',
           'cli.py',
-          'aws_scanner.py'
+          'aws_scanner.py',
+          'tests/*.py'
 ]
 exclude = [
           '.*cache/**',
           '.venv/**'
 ]
+
+[[tool.mypy.overrides]]
+# pytest decorators (@fixture, @mark.parametrize) resolve as untyped in the
+# pre-commit mypy environment, which has no pytest installed.
+module = "tests.*"
+disallow_untyped_decorators = false
 [tool.pytest.ini_options]
-testpaths = ["tests", "."]
+testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "--verbose --tb=short --cov=aws_scanner_lib --cov=services --cov-report=term-missing"
+addopts = "--verbose --tb=short --strict-markers --cov=aws_scanner_lib --cov=services --cov-report=term-missing"
 
 [tool.coverage.run]
 source = ["aws_scanner_lib", "services"]
