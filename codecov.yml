@@ -1,0 +1,22 @@
+---
+# Codecov configuration — https://docs.codecov.com/docs/codecov-yaml
+#
+# Posture: refactor-tolerant. The roadmap lands several pure refactors
+# (scanner collapse, logging shrink) that move lines without changing
+# behaviour; the project check tolerates small wobble so those PRs stay
+# green, while the patch check keeps enforcing that new/changed code
+# arrives tested.
+
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%  # refactors shuffle lines; don't red-flag the wobble
+    patch:
+      default:
+        target: 80%  # new/changed lines arrive tested (test-first discipline)
+
+comment:
+  layout: "header, diff, files"
+  require_changes: true  # stay silent on PRs that don't move coverage

@@ -1,5 +1,16 @@
 .history
 
+# runtime debug logs written by aws_scanner_lib/logging.py
+.debug_logs/
+
+# scanner output files
+*.jsonl
+/csv
+/json
+
+# pytest junit output for Codecov test analytics
+junit.xml
+
 # configuration files
 .envrc
 
