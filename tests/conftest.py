@@ -14,13 +14,6 @@ import boto3
 import pytest
 from moto import mock_aws
 
-# The aws_scanner_lib and services packages are mutually dependent today:
-# importing `services` first crashes with a circular ImportError. Importing
-# aws_scanner_lib.outputs here resolves the cycle in the only safe order for
-# every test module. Harmless once the service-registry refactor removes the
-# cycle; delete this then.
-import aws_scanner_lib.outputs  # noqa: E402,F401  isort: skip
-
 REGION = "eu-central-1"
 
 
