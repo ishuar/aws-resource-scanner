@@ -21,6 +21,9 @@ def test_scan_client_config_values() -> None:
     assert SCAN_CLIENT_CONFIG.retries == {"max_attempts": 5, "mode": "adaptive"}
     assert SCAN_CLIENT_CONFIG.read_timeout == 60
     assert SCAN_CLIENT_CONFIG.connect_timeout == 10
+    # CloudTrail-identifiable user agent; already carries the upcoming
+    # aws-resource-inventory name.
+    assert SCAN_CLIENT_CONFIG.user_agent_extra == "aws-resource-inventory"
 
 
 def test_get_scan_client_applies_the_shared_config() -> None:

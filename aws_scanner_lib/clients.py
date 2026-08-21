@@ -13,6 +13,7 @@ every scanning client:
   wrappers on top: stacking them multiplies retry attempts.
 """
 
+import threading
 from typing import Any
 
 import botocore.config
@@ -22,9 +23,20 @@ SCAN_CLIENT_CONFIG = botocore.config.Config(
     retries={"max_attempts": 5, "mode": "adaptive"},
     read_timeout=60,
     connect_timeout=10,
+    # Stamp every API call so scanner traffic is identifiable in CloudTrail.
+    user_agent_extra="aws-resource-inventory",
 )
+
+# boto3: clients are thread-safe to USE, but sessions are not thread-safe
+# to CREATE clients from — scan_region spawns service scans in parallel
+# threads that all build clients off one shared session, so creation is
+# serialized here. Scans themselves stay fully parallel.
+_client_creation_lock = threading.Lock()
 
 
 def get_scan_client(session: Any, service_name: str, region: str) -> Any:
     """Build a boto3 client for scanning with the shared config."""
-    return session.client(service_name, region_name=region, config=SCAN_CLIENT_CONFIG)
+    with _client_creation_lock:
+        return session.client(
+            service_name, region_name=region, config=SCAN_CLIENT_CONFIG
+        )
