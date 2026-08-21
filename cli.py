@@ -13,7 +13,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import typer
 from rich.console import Console
@@ -556,8 +556,17 @@ def scan_command(
             if not refresh or scan_count == 1:
                 console.print("\n[bold green]Generating output...[/bold green]")
 
+            # The caller knows which scan path produced the results:
+            # tags or --all-services switch to the Resource Groups path.
+            scan_source: Literal["services", "tagging"] = (
+                "tagging" if (all_services or tag_key or tag_value) else "services"
+            )
             resource_count = output_results(
-                all_results, current_output_file, output_format, debug
+                all_results,
+                current_output_file,
+                output_format,
+                debug,
+                source=scan_source,
             )
 
             # Show scan completion status

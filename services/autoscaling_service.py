@@ -18,6 +18,7 @@ from aws_scanner_lib.engine import (
     matches_tags,
     run_parallel,
 )
+from aws_scanner_lib.records import Resource
 
 
 def scan_autoscaling(
@@ -90,7 +91,7 @@ def scan_autoscaling(
 
 
 def process_autoscaling_output(
-    service_data: dict[str, Any], region: str, flattened_resources: list[dict[str, Any]]
+    service_data: dict[str, Any], region: str, flattened_resources: list[Resource]
 ) -> None:
     """Process Auto Scaling scan results for output formatting."""
     # Auto Scaling Groups
@@ -99,13 +100,13 @@ def process_autoscaling_output(
         asg_arn = asg.get("AutoScalingGroupARN", "N/A")
 
         flattened_resources.append(
-            {
-                "region": region,
-                "resource_name": asg_name,
-                "resource_type": "autoscaling:auto_scaling_group",
-                "resource_id": asg_name,
-                "resource_arn": asg_arn,
-            }
+            Resource(
+                region=region,
+                resource_name=asg_name,
+                resource_type="autoscaling:auto_scaling_group",
+                resource_id=asg_name,
+                resource_arn=asg_arn,
+            )
         )
 
     # Launch Configurations
@@ -114,13 +115,13 @@ def process_autoscaling_output(
         lc_arn = lc.get("LaunchConfigurationARN", "N/A")
 
         flattened_resources.append(
-            {
-                "region": region,
-                "resource_name": lc_name,
-                "resource_type": "autoscaling:launch_configuration",
-                "resource_id": lc_name,
-                "resource_arn": lc_arn,
-            }
+            Resource(
+                region=region,
+                resource_name=lc_name,
+                resource_type="autoscaling:launch_configuration",
+                resource_id=lc_name,
+                resource_arn=lc_arn,
+            )
         )
 
     # Launch Templates
@@ -129,11 +130,11 @@ def process_autoscaling_output(
         lt_id = lt.get("LaunchTemplateId", "N/A")
 
         flattened_resources.append(
-            {
-                "region": region,
-                "resource_name": lt_name,
-                "resource_type": "autoscaling:launch_template",
-                "resource_id": lt_id,
-                "resource_arn": "N/A",  # Launch Templates do not have ARNs
-            }
+            Resource(
+                region=region,
+                resource_name=lt_name,
+                resource_type="autoscaling:launch_template",
+                resource_id=lt_id,
+                resource_arn="N/A",  # Launch Templates do not have ARNs
+            )
         )

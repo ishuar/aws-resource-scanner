@@ -8,12 +8,14 @@ import json
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from rich.console import Console
 from rich.table import Table
 
 from services.registry import SERVICES
+
+from .records import Resource
 
 console = Console()
 # Minimum width for tables to ensure readability
@@ -21,7 +23,7 @@ TABLE_MINIMUM_WIDTH = 86
 
 
 def create_aws_resources_table(
-    flattened_resources: list[dict[str, Any]], debug: bool
+    flattened_resources: list[Resource], debug: bool
 ) -> Table:
     """
     Create a standardized AWS resources table with consistent formatting.
@@ -44,11 +46,11 @@ def create_aws_resources_table(
 
     for resource in flattened_resources:
         table.add_row(
-            resource.get("region", "N/A"),
+            resource.region,
             # Use unified resource_type format (service:type)
-            resource.get("resource_type", "N/A"),
-            resource.get("resource_id", "N/A"),
-            resource.get("resource_arn", "N/A"),
+            resource.resource_type,
+            resource.resource_id,
+            resource.resource_arn,
         )
 
     return table
@@ -69,7 +71,7 @@ def ensure_output_directory(output_file: Path) -> None:
 
 
 def generate_markdown_summary(
-    flattened_resources: list[dict[str, Any]], results: dict[str, Any]
+    flattened_resources: list[Resource], results: dict[str, Any]
 ) -> str:
     """Generate a markdown summary report from scan results."""
     md_content = []
@@ -83,18 +85,14 @@ def generate_markdown_summary(
 
     # Summary by region
     md_content.append("\n## Summary by Region")
-    region_counts = Counter(r["region"] for r in flattened_resources)
+    region_counts = Counter(r.region for r in flattened_resources)
     for region, count in sorted(region_counts.items()):
         md_content.append(f"- **{region}**: {count} resources")
 
     # Summary by service (extracted from resource_type)
     md_content.append("\n## Summary by Service")
     service_counts = Counter(
-        (
-            r["resource_type"].split(":")[0]
-            if ":" in r["resource_type"]
-            else r["resource_type"]
-        )
+        r.resource_type.split(":")[0] if ":" in r.resource_type else r.resource_type
         for r in flattened_resources
     )
     for service, count in sorted(service_counts.items()):
@@ -102,7 +100,7 @@ def generate_markdown_summary(
 
     # Summary by resource type
     md_content.append("\n## Summary by Resource Type")
-    type_counts = Counter(r["resource_type"] for r in flattened_resources)
+    type_counts = Counter(r.resource_type for r in flattened_resources)
     for resource_type, count in sorted(type_counts.items()):
         md_content.append(f"- **{resource_type}**: {count}")
 
@@ -110,19 +108,19 @@ def generate_markdown_summary(
     md_content.append("\n## Detailed Resources")
 
     for region in sorted(region_counts.keys()):
-        region_resources = [r for r in flattened_resources if r["region"] == region]
+        region_resources = [r for r in flattened_resources if r.region == region]
         if not region_resources:
             continue
 
         md_content.append(f"\n### {region}")
 
         # Group by service within region (extracted from resource_type)
-        region_services: dict[str, list[dict[str, Any]]] = {}
+        region_services: dict[str, list[Resource]] = {}
         for resource in region_resources:
             service = (
-                resource["resource_type"].split(":")[0]
-                if ":" in resource["resource_type"]
-                else resource["resource_type"]
+                resource.resource_type.split(":")[0]
+                if ":" in resource.resource_type
+                else resource.resource_type
             )
             if service not in region_services:
                 region_services[service] = []
@@ -139,14 +137,14 @@ def generate_markdown_summary(
 
             for resource in sorted(
                 service_resources,
-                key=lambda x: x.get("resource_name", x["resource_id"]),
+                key=lambda x: x.resource_name or x.resource_id,
             ):
-                name = resource.get("resource_name", resource["resource_id"]).replace(
+                name = (resource.resource_name or resource.resource_id).replace(
                     "|", "\\|"
                 )  # Escape pipes
-                resource_type = resource["resource_type"].replace("|", "\\|")
-                resource_id = resource["resource_id"].replace("|", "\\|")
-                arn = resource["resource_arn"].replace("|", "\\|")
+                resource_type = resource.resource_type.replace("|", "\\|")
+                resource_id = resource.resource_id.replace("|", "\\|")
+                arn = resource.resource_arn.replace("|", "\\|")
 
                 # Format ID and ARN with code blocks for better readability
                 formatted_id = f"`{resource_id}`" if resource_id != "N/A" else "N/A"
@@ -167,7 +165,7 @@ def generate_markdown_summary(
 def process_generic_service_output(
     service_data: dict[str, Any],
     region: str,
-    flattened_resources: list[dict[str, Any]],
+    flattened_resources: list[Resource],
 ) -> None:
     """
     Generic processor for cross-service resources discovered via Resource Groups API.
@@ -184,46 +182,15 @@ def process_generic_service_output(
                     resource_id = resource.get("ResourceId", "")
                     resource_type = resource.get("ResourceType", resource_type_key)
 
-                    # Create standardized resource entry with unified format
-                    flattened_resource = {
-                        "region": region,
-                        # Already in service:type format from Resource Groups API
-                        "resource_type": resource_type,
-                        "resource_id": resource_id or "N/A",
-                        "resource_arn": resource_arn or "N/A",
-                    }
-
-                    flattened_resources.append(flattened_resource)
-
-
-def _is_resource_groups_api_data(service_data: dict[str, Any]) -> bool:
-    """
-    Detect if service_data comes from Resource Groups API vs traditional service APIs.
-
-    Resource Groups API data has a different structure with ResourceARN, ResourceId, ResourceType keys.
-    Traditional API data has service-specific resource object structures.
-    """
-    if not isinstance(service_data, dict):
-        return False  # type: ignore[unreachable]
-
-    rg_signature_keys = {"ResourceARN", "ResourceId", "ResourceType"}
-
-    for resource_list in service_data.values():
-        # Skip non-list or empty values
-        if not isinstance(resource_list, list) or not resource_list:
-            continue
-
-        # Skip non-dict resources
-        sample_resource = resource_list[0]
-        if not isinstance(sample_resource, dict):
-            continue
-
-        # Check if this matches Resource Groups API format
-        sample_keys = set(sample_resource.keys())
-        if rg_signature_keys.issubset(sample_keys):
-            return True
-
-    return False
+                    flattened_resources.append(
+                        Resource(
+                            region=region,
+                            # Already in service:type format from Resource Groups API
+                            resource_type=resource_type,
+                            resource_id=resource_id or "N/A",
+                            resource_arn=resource_arn or "N/A",
+                        )
+                    )
 
 
 def output_results(
@@ -231,39 +198,40 @@ def output_results(
     output_file: Path,
     output_format: str,
     debug: bool,
+    source: Literal["services", "tagging"] = "services",
 ) -> int:
     """Process results using modular output processors and format for output.
+
+    ``source`` states which scan path produced ``results`` — the caller
+    always knows (it chose the path). "tagging" results are Resource
+    Groups API shaped and go through the generic processor; "services"
+    results route to each service's registered processor.
 
     Returns:
         int: The total number of flattened resources found.
     """
 
     # Flatten results into a list of resources with the required columns
-    flattened_resources: list[dict[str, Any]] = []
+    flattened_resources: list[Resource] = []
 
     for region, services in results.items():
         for service_name, service_data in services.items():
             if not service_data:  # Skip empty services
                 continue
 
-            # Detect if this is Resource Groups API data vs traditional API data
-            is_resource_groups_data = _is_resource_groups_api_data(service_data)
-
-            # Route to appropriate processor based on data source
-            if is_resource_groups_data:
-                # All Resource Groups API data goes through generic processor
+            if source == "tagging":
+                # Resource Groups API data all shares one shape.
                 process_generic_service_output(
                     service_data, region, flattened_resources
                 )
             else:
-                # Traditional API data goes through service-specific processors
                 registration = SERVICES.get(service_name)
                 if registration is not None:
                     registration.process_output(
                         service_data, region, flattened_resources
                     )
                 else:
-                    # Fallback to generic processor for unknown traditional services
+                    # Unknown service: fall back to the generic processor.
                     process_generic_service_output(
                         service_data, region, flattened_resources
                     )
@@ -272,18 +240,19 @@ def output_results(
     ensure_output_directory(output_file)
 
     # Output in the requested format
+    records = [resource.to_record() for resource in flattened_resources]
     if output_format == "json":
-        output_file.write_text(json.dumps(flattened_resources, indent=2))
+        output_file.write_text(json.dumps(records, indent=2))
         console.print(f"[green]Results saved to {output_file}[/green]")
         # Also print to console for immediate viewing
-        console.print(json.dumps(flattened_resources, indent=2))
+        console.print(json.dumps(records, indent=2))
     elif output_format == "table":
         # Create and display the standardized table
         table = create_aws_resources_table(flattened_resources, debug)
         console.print(table)
 
         # Also save table data as JSON to file
-        output_file.write_text(json.dumps(flattened_resources, indent=2))
+        output_file.write_text(json.dumps(records, indent=2))
         console.print(f"[green]Data also saved to {output_file}[/green]")
     elif output_format in ("md", "markdown"):
         # Generate markdown summary report
@@ -307,11 +276,7 @@ def output_results(
 
         # Count by service (extracted from resource_type)
         service_counts = Counter(
-            (
-                r["resource_type"].split(":")[0]
-                if ":" in r["resource_type"]
-                else r["resource_type"]
-            )
+            r.resource_type.split(":")[0] if ":" in r.resource_type else r.resource_type
             for r in flattened_resources
         )
         for service, count in service_counts.items():

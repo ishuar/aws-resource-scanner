@@ -6,7 +6,6 @@ identified in the output. Expected values are worked examples from the AWS
 ARN documentation format: arn:partition:service:region:account:resource.
 """
 
-from aws_scanner_lib.outputs import _is_resource_groups_api_data
 from aws_scanner_lib.resource_groups_utils import (
     _extract_resource_id_from_arn,
     _extract_service_and_type_from_arn,
@@ -89,44 +88,3 @@ class TestShouldUseResourceGroupsApi:
 
     def test_no_tags_means_traditional_path(self) -> None:
         assert should_use_resource_groups_api(None, None) is False
-
-
-class TestResourceGroupsDataDetection:
-    """_is_resource_groups_api_data routes results to the right processor."""
-
-    def test_resource_groups_shape_is_detected(self) -> None:
-        data = {
-            "instances": [
-                {
-                    "ResourceARN": "arn:aws:ec2:eu-central-1:1:instance/i-1",
-                    "ResourceId": "i-1",
-                    "ResourceType": "ec2:instance",
-                    "Region": "eu-central-1",
-                    "Tags": [],
-                }
-            ]
-        }
-        assert _is_resource_groups_api_data(data) is True
-
-    def test_traditional_boto3_shape_is_not_detected(self) -> None:
-        data = {"instances": [{"InstanceId": "i-1", "Tags": []}]}
-        assert _is_resource_groups_api_data(data) is False
-
-    def test_empty_and_non_list_values_are_not_detected(self) -> None:
-        assert _is_resource_groups_api_data({}) is False
-        assert _is_resource_groups_api_data({"instances": []}) is False
-        assert _is_resource_groups_api_data({"count": 3}) is False
-
-    def test_only_the_first_resource_of_a_list_is_sampled(self) -> None:
-        # Characterization: detection samples resource_list[0] only.
-        data = {
-            "mixed": [
-                {"InstanceId": "i-1"},
-                {
-                    "ResourceARN": "arn:aws:ec2:eu-central-1:1:instance/i-2",
-                    "ResourceId": "i-2",
-                    "ResourceType": "ec2:instance",
-                },
-            ]
-        }
-        assert _is_resource_groups_api_data(data) is False

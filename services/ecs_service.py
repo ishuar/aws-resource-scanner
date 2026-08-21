@@ -23,6 +23,7 @@ from aws_scanner_lib.engine import (
     map_parallel,
 )
 from aws_scanner_lib.logging import get_logger
+from aws_scanner_lib.records import Resource
 
 logger = get_logger()
 
@@ -149,7 +150,7 @@ def scan_ecs(session: Any, region: str) -> ScanResult:
 
 
 def process_ecs_output(
-    service_data: dict[str, Any], region: str, flattened_resources: list[dict[str, Any]]
+    service_data: dict[str, Any], region: str, flattened_resources: list[Resource]
 ) -> None:
     """Process ECS scan results for output formatting."""
     # ECS Clusters
@@ -158,12 +159,12 @@ def process_ecs_output(
         cluster_arn = cluster.get("clusterArn", "N/A")
 
         flattened_resources.append(
-            {
-                "region": region,
-                "resource_type": "ecs:cluster",
-                "resource_id": cluster_name,
-                "resource_arn": cluster_arn,
-            }
+            Resource(
+                region=region,
+                resource_type="ecs:cluster",
+                resource_id=cluster_name,
+                resource_arn=cluster_arn,
+            )
         )
 
     # ECS Services
@@ -172,12 +173,12 @@ def process_ecs_output(
         service_arn = service.get("serviceArn", "N/A")
 
         flattened_resources.append(
-            {
-                "region": region,
-                "resource_type": "ecs:service",
-                "resource_id": service_name,
-                "resource_arn": service_arn,
-            }
+            Resource(
+                region=region,
+                resource_type="ecs:service",
+                resource_id=service_name,
+                resource_arn=service_arn,
+            )
         )
 
     # ECS Task Definitions
@@ -186,12 +187,12 @@ def process_ecs_output(
         task_def_name = task_def_arn.split("/")[-1] if task_def_arn != "N/A" else "N/A"
 
         flattened_resources.append(
-            {
-                "region": region,
-                "resource_type": "ecs:task_definition",  # Unified format: service:type
-                "resource_id": task_def_name,
-                "resource_arn": task_def_arn,
-            }
+            Resource(
+                region=region,
+                resource_type="ecs:task_definition",  # Unified format: service:type
+                resource_id=task_def_name,
+                resource_arn=task_def_arn,
+            )
         )
 
     # ECS Capacity Providers
@@ -200,10 +201,10 @@ def process_ecs_output(
         cp_arn = cp.get("capacityProviderArn", "N/A")
 
         flattened_resources.append(
-            {
-                "region": region,
-                "resource_type": "ecs:capacity_provider",  # Unified format: service:type
-                "resource_id": cp_name,
-                "resource_arn": cp_arn,
-            }
+            Resource(
+                region=region,
+                resource_type="ecs:capacity_provider",  # Unified format: service:type
+                resource_id=cp_name,
+                resource_arn=cp_arn,
+            )
         )

@@ -24,6 +24,7 @@ from aws_scanner_lib.engine import (
     run_parallel,
 )
 from aws_scanner_lib.logging import get_logger
+from aws_scanner_lib.records import Resource
 
 logger = get_logger()
 
@@ -117,7 +118,7 @@ def scan_elb(session: Any, region: str) -> ScanResult:
 
 
 def process_elb_output(
-    service_data: dict[str, Any], region: str, flattened_resources: list[dict[str, Any]]
+    service_data: dict[str, Any], region: str, flattened_resources: list[Resource]
 ) -> None:
     """Process ELB scan results for output formatting."""
     # Load Balancers
@@ -127,13 +128,13 @@ def process_elb_output(
         lb_type = lb.get("Type", "N/A")
 
         flattened_resources.append(
-            {
-                "region": region,
-                "resource_name": lb_name,
-                "resource_type": f"elbv2:load_balancer_{lb_type}",
-                "resource_id": "N/A",  # AWS api does not return id
-                "resource_arn": lb_arn,
-            }
+            Resource(
+                region=region,
+                resource_name=lb_name,
+                resource_type=f"elbv2:load_balancer_{lb_type}",
+                resource_id="N/A",  # AWS api does not return id
+                resource_arn=lb_arn,
+            )
         )
 
     # Listeners
@@ -143,13 +144,13 @@ def process_elb_output(
         port = listener.get("Port", "N/A")
 
         flattened_resources.append(
-            {
-                "region": region,
-                "resource_name": f"{protocol}:{port}",
-                "resource_type": "elbv2:listener",
-                "resource_id": "N/A",  # AWS api does not return id
-                "resource_arn": listener_arn,
-            }
+            Resource(
+                region=region,
+                resource_name=f"{protocol}:{port}",
+                resource_type="elbv2:listener",
+                resource_id="N/A",  # AWS api does not return id
+                resource_arn=listener_arn,
+            )
         )
 
     # Listener Rules
@@ -158,13 +159,13 @@ def process_elb_output(
         priority = rule.get("Priority", "N/A")
 
         flattened_resources.append(
-            {
-                "region": region,
-                "resource_name": f"Rule-{priority}",
-                "resource_type": "elbv2:listener_rule",
-                "resource_id": "N/A",  # AWS api does not return id
-                "resource_arn": rule_arn,
-            }
+            Resource(
+                region=region,
+                resource_name=f"Rule-{priority}",
+                resource_type="elbv2:listener_rule",
+                resource_id="N/A",  # AWS api does not return id
+                resource_arn=rule_arn,
+            )
         )
 
     # Target Groups
@@ -173,11 +174,11 @@ def process_elb_output(
         tg_arn = tg.get("TargetGroupArn", "N/A")
 
         flattened_resources.append(
-            {
-                "region": region,
-                "resource_name": tg_name,
-                "resource_type": "elbv2:target_group",
-                "resource_id": "N/A",  # AWS api does not return id
-                "resource_arn": tg_arn,
-            }
+            Resource(
+                region=region,
+                resource_name=tg_name,
+                resource_type="elbv2:target_group",
+                resource_id="N/A",  # AWS api does not return id
+                resource_arn=tg_arn,
+            )
         )
