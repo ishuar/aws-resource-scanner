@@ -323,18 +323,3 @@ def output_results(
         )
 
     return len(flattened_resources)
-
-
-def compare_with_existing(output_file: Path, new_data: Dict[str, Any]) -> None:
-    """Compare new scan results with existing file to detect changes."""
-    if output_file.exists():
-        # Import DeepDiff only when needed to avoid circular import issues
-        from deepdiff import DeepDiff
-
-        existing_data = json.loads(output_file.read_text())
-        diff = DeepDiff(existing_data, new_data, ignore_order=True)
-        if not diff:
-            console.print("[green]No changes detected since last scan.[/green]")
-        else:
-            console.print("[yellow]Changes detected![/yellow]")
-            console.print(json.dumps(diff, indent=2, default=str))

@@ -278,7 +278,6 @@ def scan_command(
     tag_value: Optional[str] = None,          # Tag value filter
     output_file: Optional[Path] = None,       # Output file path
     output_format: str = "table",             # Output format
-    compare: bool = False,                    # Compare mode
     dry_run: bool = False,                    # Dry run mode
     max_workers: int = 8,                     # Region parallelism
     service_workers: int = 4,                 # Service parallelism
@@ -1081,7 +1080,6 @@ aws-scanner [GLOBAL-OPTIONS] scan [OPTIONS]
 | `--tag-value` | | `str` | `None` | **NEW: Hybrid tag filtering by value** |
 | `--output` | `-o` | `Path` | Auto-generated | Output file path |
 | `--format` | `-f` | `str` | `table` | Output format (json\|table\|md) |
-| `--compare` | `-c` | `bool` | `False` | Compare with existing results |
 | `--dry-run` | | `bool` | `False` | Show scan plan without execution |
 | `--max-workers` | `-w` | `int` | `8` | Region parallelism (1-20) |
 | `--service-workers` | | `int` | `4` | Service parallelism (1-10) |
@@ -1773,9 +1771,6 @@ aws-scanner --verbose scan --debug --max-workers 12 --service-workers 8 --region
 
 #### Monitoring Workflow
 ```bash
-# Resource change detection with debug logging
-aws-scanner --log-file ./monitoring.log scan --debug --compare --output daily-scan.json
-
 # Tagged resource monitoring with detailed output
 aws-scanner --verbose scan --debug --tag-key CostCenter --format md --output cost-center-report.md
 
@@ -2256,9 +2251,6 @@ aws-scanner scan --format table --debug
 
 #### Comparison and Analysis
 ```bash
-# Compare current state with previous scan
-aws-scanner scan --compare --output ./comparison-report.json
-
 # Continuous monitoring mode
 aws-scanner scan --refresh --refresh-interval 30 --service ec2
 ```

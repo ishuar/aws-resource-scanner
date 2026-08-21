@@ -50,7 +50,6 @@ from aws_scanner_lib.logging import (
 # Import core scanning functionality
 from aws_scanner_lib.outputs import (
     TABLE_MINIMUM_WIDTH,
-    compare_with_existing,
     output_results,
 )
 
@@ -145,9 +144,6 @@ def scan_command(
     ),
     output_format: str = typer.Option(
         "table", "--format", "-f", help="Output format (json|table|md|markdown)"
-    ),
-    compare: bool = typer.Option(
-        False, "--compare", "-c", help="Compare with existing results"
     ),
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Show what would be scanned without executing"
@@ -268,13 +264,6 @@ def scan_command(
         logger.error("Invalid combination: refresh mode with dry run")
         console.print(
             "[red]❌ Cannot use refresh mode with dry run. Please choose one.[/red]"
-        )
-        raise typer.Exit(1)
-
-    if refresh and compare:
-        logger.error("Invalid combination: refresh mode with compare")
-        console.print(
-            "[red]❌ Cannot use refresh mode with compare. Please choose one.[/red]"
         )
         raise typer.Exit(1)
 
@@ -557,17 +546,6 @@ def scan_command(
             )
 
             # Check for shutdown before processing results
-            if shutdown_requested.is_set():
-                console.print(
-                    "[yellow]Skipping output generation due to shutdown request[/yellow]"
-                )
-                break
-
-            # Compare with existing results if requested (only on first scan)
-            if compare and scan_count == 1:
-                compare_with_existing(current_output_file, all_results)
-
-            # Check for shutdown before output generation
             if shutdown_requested.is_set():
                 console.print(
                     "[yellow]Skipping output generation due to shutdown request[/yellow]"
