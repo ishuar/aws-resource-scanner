@@ -238,7 +238,7 @@ graph TB
 ##### Main Application Setup
 ```python
 app = typer.Typer(
-    name="aws-scanner",
+    name="aws-inventory",
     help="AWS Multi-Service Scanner\n\nScan multiple AWS services across regions with optional tag filtering\n\nUse the 'scan' command to start scanning AWS resources.",
     add_completion=True,
 )
@@ -406,7 +406,7 @@ def configure_logging(
         - Boto3/botocore enhanced logging when verbose=True
     """
 
-def get_logger(name: str = "aws-scanner") -> AWSLogger:
+def get_logger(name: str = "aws-inventory") -> AWSLogger:
     """
     Get unified logger instance for any service.
 
@@ -853,7 +853,7 @@ sequenceDiagram
     participant Log as logging.py
     participant AWS as AWS APIs
 
-    User->>CLI: aws-scanner scan --regions us-east-1 --tag-key Environment
+    User->>CLI: aws-inventory scan --regions us-east-1 --tag-key Environment
     CLI->>CLI: Parse arguments & validate
     CLI->>CLI: Display configuration panels
     CLI->>Core: validate_aws_credentials()
@@ -1052,7 +1052,7 @@ graph TB
 
 **Syntax:**
 ```bash
-aws-scanner [GLOBAL-OPTIONS] COMMAND [COMMAND-OPTIONS]
+aws-inventory [GLOBAL-OPTIONS] COMMAND [COMMAND-OPTIONS]
 ```
 
 **Enhanced Global Options:**
@@ -1062,11 +1062,11 @@ aws-scanner [GLOBAL-OPTIONS] COMMAND [COMMAND-OPTIONS]
 | `--log-file` | `-l` | `Path` | `None` | Global log file path for unified debug output |
 | `--verbose` | `-v` | `bool` | `False` | Enable verbose AWS API call tracing with timing |
 
-#### Command: `aws-scanner scan` (ENHANCED)
+#### Command: `aws-inventory scan` (ENHANCED)
 
 **Syntax:**
 ```bash
-aws-scanner [GLOBAL-OPTIONS] scan [OPTIONS]
+aws-inventory [GLOBAL-OPTIONS] scan [OPTIONS]
 ```
 
 **Enhanced Options with New Features:**
@@ -1092,25 +1092,25 @@ aws-scanner [GLOBAL-OPTIONS] scan [OPTIONS]
 **Enhanced Examples:**
 ```bash
 # Basic EC2 scan with unified logging
-aws-scanner scan --regions us-east-1 --service ec2 --debug
+aws-inventory scan --regions us-east-1 --service ec2 --debug
 
 # NEW: Hybrid tag filtering (Resource Groups API + Auto Scaling)
-aws-scanner scan --tag-key Environment --tag-value Production
+aws-inventory scan --tag-key Environment --tag-value Production
 
 # NEW: Tag key only filtering (any value)
-aws-scanner scan --tag-key Team --regions us-east-1,eu-west-1
+aws-inventory scan --tag-key Team --regions us-east-1,eu-west-1
 
 # Enhanced debug with AWS API operation logging
-aws-scanner --verbose scan --debug --regions us-east-1 --service autoscaling
+aws-inventory --verbose scan --debug --regions us-east-1 --service autoscaling
 
 # NEW: Auto Scaling specific scan with tag filtering
-aws-scanner scan --service autoscaling --tag-key Application --debug
+aws-inventory scan --service autoscaling --tag-key Application --debug
 
 # Enhanced performance scan with all new logging
-aws-scanner --log-file ./scan.log --verbose scan --debug --max-workers 12
+aws-inventory --log-file ./scan.log --verbose scan --debug --max-workers 12
 
 # NEW: Cross-service hybrid scan
-aws-scanner scan --tag-key Environment --all-services --debug
+aws-inventory scan --tag-key Environment --all-services --debug
 ```
 
 ### 2. Enhanced Core Functions API
@@ -1478,7 +1478,7 @@ def configure_logging(
         >>> logger.log_aws_operation("ec2", "describe_instances", "us-east-1")
     """
 
-def get_logger(name: str = "aws-scanner") -> AWSLogger:
+def get_logger(name: str = "aws-inventory") -> AWSLogger:
     """
     Get logger instance - unified interface for all AWS scanner logging.
 
@@ -1670,7 +1670,7 @@ poetry install
 pip install -e .
 
 # Verify installation
-aws-scanner --help
+aws-inventory --help
 ```
 
 ### 2. AWS Configuration
@@ -1681,7 +1681,7 @@ aws-scanner --help
 aws configure --profile production
 
 # Use with scanner
-aws-scanner scan --profile production --regions us-east-1
+aws-inventory scan --profile production --regions us-east-1
 ```
 
 #### Method 2: Environment Variables
@@ -1691,13 +1691,13 @@ export AWS_PROFILE=production
 export AWS_REGION=us-east-1
 
 # Use with scanner
-aws-scanner scan
+aws-inventory scan
 ```
 
 #### Method 3: IAM Roles (EC2/Lambda)
 ```bash
 # No additional configuration needed
-aws-scanner scan --regions us-east-1
+aws-inventory scan --regions us-east-1
 ```
 
 ### 3. Required IAM Permissions
@@ -1748,34 +1748,34 @@ aws-scanner scan --regions us-east-1
 #### Development Workflow
 ```bash
 # Quick development scan with debug logging
-aws-scanner --verbose scan --debug --regions us-east-1 --service ec2 --dry-run
+aws-inventory --verbose scan --debug --regions us-east-1 --service ec2 --dry-run
 
 # Development with caching disabled and detailed logging
-aws-scanner --log-file ./dev-debug.log scan --debug --no-cache --regions us-east-1 --service ec2,s3
+aws-inventory --log-file ./dev-debug.log scan --debug --no-cache --regions us-east-1 --service ec2,s3
 
 # Continuous development monitoring with debug output
-aws-scanner --verbose scan --debug --refresh --refresh-interval 30 --regions us-east-1
+aws-inventory --verbose scan --debug --refresh --refresh-interval 30 --regions us-east-1
 ```
 
 #### Production Workflow
 ```bash
 # Complete inventory scan with logging
-aws-scanner --log-file ./production-scan.log scan --debug --all-services --tag-key Environment --tag-value Production
+aws-inventory --log-file ./production-scan.log scan --debug --all-services --tag-key Environment --tag-value Production
 
 # Multi-region compliance scan with detailed logging
-aws-scanner --verbose scan --debug --regions us-east-1,us-west-2,eu-west-1 --format json --output compliance-report.json
+aws-inventory --verbose scan --debug --regions us-east-1,us-west-2,eu-west-1 --format json --output compliance-report.json
 
 # Performance-optimized scan with verbose AWS API tracing
-aws-scanner --verbose scan --debug --max-workers 12 --service-workers 8 --regions us-east-1,eu-west-1
+aws-inventory --verbose scan --debug --max-workers 12 --service-workers 8 --regions us-east-1,eu-west-1
 ```
 
 #### Monitoring Workflow
 ```bash
 # Tagged resource monitoring with detailed output
-aws-scanner --verbose scan --debug --tag-key CostCenter --format md --output cost-center-report.md
+aws-inventory --verbose scan --debug --tag-key CostCenter --format md --output cost-center-report.md
 
 # Infrastructure drift detection with comprehensive logging
-aws-scanner --verbose scan --debug --refresh --refresh-interval 300 --format table
+aws-inventory --verbose scan --debug --refresh --refresh-interval 300 --format table
 ```
 
 ## Extending the Scanner
@@ -2037,7 +2037,7 @@ aws sts get-caller-identity
 aws configure list --profile production
 
 # Test with different profile
-aws-scanner scan --profile default --regions us-east-1
+aws-inventory scan --profile default --regions us-east-1
 ```
 
 #### 2. Permission Issues
@@ -2053,13 +2053,13 @@ aws resourcegroupstaggingapi get-resources --region us-east-1
 #### 3. Performance Issues
 ```bash
 # Reduce parallelism
-aws-scanner scan --max-workers 2 --service-workers 1
+aws-inventory scan --max-workers 2 --service-workers 1
 
 # Disable caching
-aws-scanner scan --no-cache
+aws-inventory scan --no-cache
 
 # Scan fewer regions/services
-aws-scanner scan --regions us-east-1 --service ec2
+aws-inventory scan --regions us-east-1 --service ec2
 ```
 
 #### 4. Output Issues
@@ -2068,25 +2068,25 @@ aws-scanner scan --regions us-east-1 --service ec2
 ls -la $(dirname output-file.json)
 
 # Verify file format
-aws-scanner scan --format json --output /tmp/test.json
+aws-inventory scan --format json --output /tmp/test.json
 ```
 
 ### Debug Mode
 ```bash
 # Enable debug mode with file logging
-aws-scanner --log-file ./debug.log scan --debug --regions us-east-1
+aws-inventory --log-file ./debug.log scan --debug --regions us-east-1
 
 # Enable verbose AWS API tracing
-aws-scanner --verbose scan --debug --regions us-east-1
+aws-inventory --verbose scan --debug --regions us-east-1
 
 # Combine verbose logging with custom debug file
-aws-scanner --verbose --log-file ./aws-api-trace.log scan --debug --regions us-east-1
+aws-inventory --verbose --log-file ./aws-api-trace.log scan --debug --regions us-east-1
 
 # Check debug log contents
 tail -f .debug_logs/aws_scanner_debug_*.log
 
 # Debug specific service scanning
-aws-scanner --verbose scan --debug --service ec2 --regions us-east-1 --dry-run
+aws-inventory --verbose scan --debug --service ec2 --regions us-east-1 --dry-run
 ```
 
 ### Debug Log Analysis
@@ -2111,22 +2111,22 @@ grep "ERROR" .debug_logs/aws_scanner_debug_*.log
 #### Single Service Scans
 ```bash
 # EC2 instances in specific region
-aws-scanner scan --regions us-east-1 --service ec2
+aws-inventory scan --regions us-east-1 --service ec2
 
 # S3 buckets with debug logging
-aws-scanner scan --service s3 --debug
+aws-inventory scan --service s3 --debug
 
 # VPC resources with verbose AWS API logging
-aws-scanner --verbose scan --regions eu-west-1 --service vpc
+aws-inventory --verbose scan --regions eu-west-1 --service vpc
 ```
 
 #### Multi-Service Scans
 ```bash
 # All supported services in multiple regions
-aws-scanner scan --regions us-east-1,us-west-2,eu-west-1
+aws-inventory scan --regions us-east-1,us-west-2,eu-west-1
 
 # Specific services with enhanced performance
-aws-scanner scan --service ec2,vpc,autoscaling --max-workers 12 --service-workers 8
+aws-inventory scan --service ec2,vpc,autoscaling --max-workers 12 --service-workers 8
 ```
 
 ### 2. NEW: Hybrid Tag Filtering Examples
@@ -2134,28 +2134,28 @@ aws-scanner scan --service ec2,vpc,autoscaling --max-workers 12 --service-worker
 #### Exact Tag Matching
 ```bash
 # Find resources with exact Environment=Production tag
-aws-scanner scan --tag-key Environment --tag-value Production
+aws-inventory scan --tag-key Environment --tag-value Production
 
 # Find resources with exact Team=Backend tag across multiple regions
-aws-scanner scan --tag-key Team --tag-value Backend --regions us-east-1,eu-west-1
+aws-inventory scan --tag-key Team --tag-value Backend --regions us-east-1,eu-west-1
 ```
 
 #### Tag Key Only Filtering
 ```bash
 # Find all resources that have an "Environment" tag (any value)
-aws-scanner scan --tag-key Environment
+aws-inventory scan --tag-key Environment
 
 # Find resources with "CostCenter" tag in specific regions
-aws-scanner scan --tag-key CostCenter --regions us-east-1,us-west-2
+aws-inventory scan --tag-key CostCenter --regions us-east-1,us-west-2
 ```
 
 #### Tag Value Only Filtering
 ```bash
 # Find resources with value "Production" (any tag key)
-aws-scanner scan --tag-value Production
+aws-inventory scan --tag-value Production
 
 # Find resources tagged with "critical" across all supported regions
-aws-scanner scan --tag-value critical
+aws-inventory scan --tag-value critical
 ```
 
 ### 3. NEW: Auto Scaling Enhanced Examples
@@ -2163,19 +2163,19 @@ aws-scanner scan --tag-value critical
 #### Auto Scaling Specific Scans
 ```bash
 # Scan only Auto Scaling resources with unified logging
-aws-scanner scan --service autoscaling --debug
+aws-inventory scan --service autoscaling --debug
 
 # Auto Scaling resources with specific tag
-aws-scanner scan --service autoscaling --tag-key Application --tag-value WebApp
+aws-inventory scan --service autoscaling --tag-key Application --tag-value WebApp
 
 # Auto Scaling with verbose AWS API logging
-aws-scanner --verbose scan --service autoscaling --regions us-east-1
+aws-inventory --verbose scan --service autoscaling --regions us-east-1
 ```
 
 #### Hybrid Auto Scaling + Resource Groups
 ```bash
 # NEW: Hybrid scan combining Resource Groups API + Auto Scaling Direct API
-aws-scanner scan --tag-key Environment --tag-value Staging
+aws-inventory scan --tag-key Environment --tag-value Staging
 
 # This command now uses:
 # 1. Resource Groups API for most services (90% coverage)
@@ -2188,13 +2188,13 @@ aws-scanner scan --tag-key Environment --tag-value Staging
 #### Unified Debug Logging
 ```bash
 # Enable unified debug logging for comprehensive output
-aws-scanner scan --debug --regions us-east-1 --service ec2
+aws-inventory scan --debug --regions us-east-1 --service ec2
 
 # Debug with custom log file location
-aws-scanner --log-file ./my-scan-debug.log scan --debug --service vpc
+aws-inventory --log-file ./my-scan-debug.log scan --debug --service vpc
 
 # Verbose AWS API logging with performance timing
-aws-scanner --verbose scan --debug --service autoscaling
+aws-inventory --verbose scan --debug --service autoscaling
 ```
 
 #### Log Analysis Examples
@@ -2217,22 +2217,22 @@ grep "autoscaling" .debug_logs/aws_scanner_debug_*.log
 #### High-Performance Scanning
 ```bash
 # Maximum performance with all optimizations
-aws-scanner scan --max-workers 16 --service-workers 10 --no-cache
+aws-inventory scan --max-workers 16 --service-workers 10 --no-cache
 
 # Balanced performance for large infrastructures
-aws-scanner scan --max-workers 12 --service-workers 6 --regions us-east-1,us-west-2,eu-west-1
+aws-inventory scan --max-workers 12 --service-workers 6 --regions us-east-1,us-west-2,eu-west-1
 
 # Fast tag-based scanning using hybrid approach
-aws-scanner scan --tag-key Environment --max-workers 8
+aws-inventory scan --tag-key Environment --max-workers 8
 ```
 
 #### Memory-Optimized Scanning
 ```bash
 # Lower worker counts for memory-constrained environments
-aws-scanner scan --max-workers 4 --service-workers 2
+aws-inventory scan --max-workers 4 --service-workers 2
 
 # Cache-disabled for real-time data
-aws-scanner scan --no-cache --service ec2,vpc
+aws-inventory scan --no-cache --service ec2,vpc
 ```
 
 ### 6. Output Format Examples
@@ -2240,19 +2240,19 @@ aws-scanner scan --no-cache --service ec2,vpc
 #### Different Output Formats
 ```bash
 # JSON output for programmatic processing
-aws-scanner scan --format json --output ./results.json
+aws-inventory scan --format json --output ./results.json
 
 # Markdown report generation
-aws-scanner scan --format md --output ./aws-inventory.md
+aws-inventory scan --format md --output ./aws-inventory.md
 
 # Rich table output (default) with debug
-aws-scanner scan --format table --debug
+aws-inventory scan --format table --debug
 ```
 
 #### Comparison and Analysis
 ```bash
 # Continuous monitoring mode
-aws-scanner scan --refresh --refresh-interval 30 --service ec2
+aws-inventory scan --refresh --refresh-interval 30 --service ec2
 ```
 
 ### 7. Real-World Use Case Examples
@@ -2260,32 +2260,32 @@ aws-scanner scan --refresh --refresh-interval 30 --service ec2
 #### Infrastructure Auditing
 ```bash
 # Audit all production resources across multiple regions
-aws-scanner scan --tag-key Environment --tag-value Production \
+aws-inventory scan --tag-key Environment --tag-value Production \
   --regions us-east-1,us-west-2,eu-west-1,ap-southeast-1 \
   --format json --output ./production-audit.json --debug
 
 # Cost optimization analysis
-aws-scanner scan --service ec2,s3,vpc --tag-key CostCenter \
+aws-inventory scan --service ec2,s3,vpc --tag-key CostCenter \
   --format md --output ./cost-analysis.md
 ```
 
 #### Security Assessment
 ```bash
 # Identify untagged resources for compliance
-aws-scanner scan --regions us-east-1,us-west-2 --format json | \
+aws-inventory scan --regions us-east-1,us-west-2 --format json | \
   jq '.[] | select(.tags == null or (.tags | length == 0))'
 
 # Security group analysis
-aws-scanner scan --service ec2 --format json --output ./security-groups.json
+aws-inventory scan --service ec2 --format json --output ./security-groups.json
 ```
 
 #### Development Environment Management
 ```bash
 # Find all development environment resources
-aws-scanner scan --tag-key Environment --tag-value Development --debug
+aws-inventory scan --tag-key Environment --tag-value Development --debug
 
 # Team-specific resource inventory
-aws-scanner scan --tag-key Team --tag-value DevOps \
+aws-inventory scan --tag-key Team --tag-value DevOps \
   --format table --output ./devops-resources.txt
 ```
 

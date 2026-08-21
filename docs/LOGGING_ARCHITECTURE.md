@@ -60,7 +60,7 @@ The central logging orchestrator that manages all logging functionality.
 class AWSLogger:
     """Main logging class with unified interface"""
 
-    def __init__(self, name: str = "aws-scanner"):
+    def __init__(self, name: str = "aws-inventory"):
         self.name = name
         self.logger = logging.getLogger(name)
         self._debug_mode = False
@@ -359,20 +359,20 @@ sequenceDiagram
 
 ```
 Root Logger
-├── aws-scanner (AWSLogger)
+├── aws-inventory (AWSLogger)
 │   ├── RichHandler (console)
 │   └── FileHandler (debug.log)
-├── boto3 → [forwards to aws-scanner handlers]
-├── botocore → [forwards to aws-scanner handlers]
-├── urllib3 → [forwards to aws-scanner handlers]
-└── requests → [forwards to aws-scanner handlers]
+├── boto3 → [forwards to aws-inventory handlers]
+├── botocore → [forwards to aws-inventory handlers]
+├── urllib3 → [forwards to aws-inventory handlers]
+└── requests → [forwards to aws-inventory handlers]
 ```
 
 ## Configuration Examples
 
 ### Basic Debug Logging
 ```bash
-aws-scanner scan --debug
+aws-inventory scan --debug
 ```
 - Enables debug output to console and file
 - Suppresses noisy third-party loggers
@@ -380,7 +380,7 @@ aws-scanner scan --debug
 
 ### Verbose AWS API Tracing
 ```bash
-aws-scanner --verbose scan --debug
+aws-inventory --verbose scan --debug
 ```
 - Enables all AWS API call logging
 - Captures HTTP request/response details
@@ -388,14 +388,14 @@ aws-scanner --verbose scan --debug
 
 ### Custom Log File
 ```bash
-aws-scanner --verbose --log-file /tmp/aws-trace.log scan --debug
+aws-inventory --verbose --log-file /tmp/aws-trace.log scan --debug
 ```
 - Saves verbose output to custom file
 - Full API tracing with detailed formatting
 
 ### Multiple Services with Timing
 ```bash
-aws-scanner --verbose scan --debug --service ec2,s3,vpc --max-workers 1
+aws-inventory --verbose scan --debug --service ec2,s3,vpc --max-workers 1
 ```
 - Traces multiple AWS services
 - Sequential execution for clear logging
@@ -429,7 +429,7 @@ aws-scanner --verbose scan --debug --service ec2,s3,vpc --max-workers 1
 
 ```bash
 # Test logging configuration
-aws-scanner --verbose scan --debug --dry-run
+aws-inventory --verbose scan --debug --dry-run
 
 # Check log file output
 tail -f /path/to/debug.log | grep -E "(boto|botocore|HTTP)"

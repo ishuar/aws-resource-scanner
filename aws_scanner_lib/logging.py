@@ -71,7 +71,7 @@ class AWSLogger:
     - AWS API call tracking
     """
 
-    def __init__(self, name: str = "aws-scanner"):
+    def __init__(self, name: str = "aws-inventory"):
         self.name = name
         self.logger = logging.getLogger(name)
         self._debug_mode = False
@@ -428,13 +428,13 @@ def configure_logging(
     global _aws_logger
 
     if _aws_logger is None:
-        _aws_logger = AWSLogger("aws-scanner")
+        _aws_logger = AWSLogger("aws-inventory")
 
     _aws_logger.configure(debug=debug, log_file=log_file, verbose=verbose)
     return _aws_logger
 
 
-def get_logger(name: str = "aws-scanner") -> AWSLogger:
+def get_logger(name: str = "aws-inventory") -> AWSLogger:
     """
     Get logger instance - unified interface for all AWS scanner logging.
 

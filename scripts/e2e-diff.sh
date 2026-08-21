@@ -85,7 +85,7 @@ print(f"    OK: account {identity['Account']}, principal {identity['Arn']}")
 PY
 
 # --- setup -------------------------------------------------------------------
-WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/aws-scanner-e2e.XXXXXX")"
+WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/aws-inventory-e2e.XXXXXX")"
 cleanup() {
   git worktree remove --force "${WORKDIR}/before" 2>/dev/null || true
   git worktree remove --force "${WORKDIR}/after" 2>/dev/null || true

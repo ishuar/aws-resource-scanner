@@ -56,7 +56,7 @@ A comprehensive AWS multi-service scanner with tag-based filtering, parallel pro
 | **Auto Scaling** | Auto Scaling Groups                                                                                                     | ASGs, Launch Configurations, Launch Templates                     |
 | **ELB**          | Elastic Load Balancing                                                                                                  | Application Load Balancers, Network Load Balancers, Target Groups |
 
-> **📚 Architecture Details**: For detailed information about the scanning architecture and service implementation patterns, see [Architecture Documentation](docs/aws-scanner-book.md).
+> **📚 Architecture Details**: For detailed information about the scanning architecture and service implementation patterns, see [Architecture Documentation](docs/aws-inventory-book.md).
 
 ## 📋 Prerequisites
 
@@ -128,7 +128,7 @@ pre-commit install --install-hooks
 
 All commands follow this pattern:
 ```bash
-poetry run aws-scanner [GLOBAL OPTIONS] COMMAND [COMMAND OPTIONS]
+poetry run aws-inventory [GLOBAL OPTIONS] COMMAND [COMMAND OPTIONS]
 ```
 
 **Global Options** (apply to all commands):
@@ -142,133 +142,133 @@ poetry run aws-scanner [GLOBAL OPTIONS] COMMAND [COMMAND OPTIONS]
 
 ```bash
 # Display help and available commands
-poetry run aws-scanner --help
+poetry run aws-inventory --help
 
 # Display scan command help and options
-poetry run aws-scanner scan --help
+poetry run aws-inventory scan --help
 
 # Basic scan with default settings (all supported services)
-poetry run aws-scanner scan --regions us-east-1,eu-west-1,eu-central-1,us-west-2
+poetry run aws-inventory scan --regions us-east-1,eu-west-1,eu-central-1,us-west-2
 
 # Scan specific services
-poetry run aws-scanner scan --service ec2
+poetry run aws-inventory scan --service ec2
 
 # Scan specific regions
-poetry run aws-scanner scan --regions us-east-1,eu-west-1
+poetry run aws-inventory scan --regions us-east-1,eu-west-1
 ```
 
 ### Debug and Logging Options
 
 ```bash
 # Enable debug mode for detailed execution traces
-poetry run aws-scanner scan --debug --regions us-east-1
+poetry run aws-inventory scan --debug --regions us-east-1
 
 # Enable verbose AWS API tracing (requires --debug)
-poetry run aws-scanner --verbose scan --debug --service ec2
+poetry run aws-inventory --verbose scan --debug --service ec2
 
 # Custom log file for debug output
-poetry run aws-scanner --log-file /tmp/my-scan.log scan --debug --regions us-east-1
+poetry run aws-inventory --log-file /tmp/my-scan.log scan --debug --regions us-east-1
 
 # Combine verbose logging with custom log file
-poetry run aws-scanner --verbose --log-file /tmp/aws-api-trace.log scan --debug --service ec2,s3
+poetry run aws-inventory --verbose --log-file /tmp/aws-api-trace.log scan --debug --service ec2,s3
 
 # Debug with dry run (no actual scanning)
-poetry run aws-scanner --verbose scan --debug --dry-run --service vpc
+poetry run aws-inventory --verbose scan --debug --dry-run --service vpc
 ```
 
 ### Service-Specific Scanning
 
 ```bash
 # Scan only EC2 resources
-poetry run aws-scanner scan --service ec2
+poetry run aws-inventory scan --service ec2
 
 # Scan multiple services
-poetry run aws-scanner scan --service ec2 --service s3 --service vpc
+poetry run aws-inventory scan --service ec2 --service s3 --service vpc
 
 # Scan all built-in services in specific regions
-poetry run aws-scanner scan --regions us-east-1,us-west-2
+poetry run aws-inventory scan --regions us-east-1,us-west-2
 
 # Combine service and region filtering
-poetry run aws-scanner scan --service ec2 --regions eu-central-1,eu-west-1
+poetry run aws-inventory scan --service ec2 --regions eu-central-1,eu-west-1
 
 # Scan ALL AWS services using Resource Groups API (requires tags)
-poetry run aws-scanner scan --all-services --tag-key Environment --tag-value Production
+poetry run aws-inventory scan --all-services --tag-key Environment --tag-value Production
 ```
 
 ### Tag-Based Filtering
 
 ```bash
 # Filter by environment tag
-poetry run aws-scanner scan --tag-key Environment --tag-value Production
+poetry run aws-inventory scan --tag-key Environment --tag-value Production
 
 # Filter by application tag
-poetry run aws-scanner scan --tag-key app --tag-value web-server
+poetry run aws-inventory scan --tag-key app --tag-value web-server
 
 # Filter by cost center in specific regions
-poetry run aws-scanner scan --regions us-east-1 --tag-key CostCenter --tag-value Engineering
+poetry run aws-inventory scan --regions us-east-1 --tag-key CostCenter --tag-value Engineering
 ```
 
 ### Output Formats
 
 ```bash
 # Default table format (human-readable)
-poetry run aws-scanner scan --format table
+poetry run aws-inventory scan --format table
 
 # JSON format for programmatic processing
-poetry run aws-scanner scan --format json --output results.json
+poetry run aws-inventory scan --format json --output results.json
 
 # Markdown format for documentation
-poetry run aws-scanner scan --format md --output report.md
+poetry run aws-inventory scan --format md --output report.md
 
 # Export filtered results to JSON
-poetry run aws-scanner scan --tag-key Environment --tag-value Production --format json --output prod-resources.json
+poetry run aws-inventory scan --tag-key Environment --tag-value Production --format json --output prod-resources.json
 ```
 
 ### Advanced Options
 
 ```bash
 # Dry run (preview without execution)
-poetry run aws-scanner scan --dry-run --service ec2
+poetry run aws-inventory scan --dry-run --service ec2
 
 # Disable caching for fresh data
-poetry run aws-scanner scan --no-cache
+poetry run aws-inventory scan --no-cache
 
 # Configure worker threads for performance
-poetry run aws-scanner scan --max-workers 10 --service-workers 6
+poetry run aws-inventory scan --max-workers 10 --service-workers 6
 
 # Continuous refresh mode with custom interval
-poetry run aws-scanner scan --refresh --refresh-interval 30 --service ec2
+poetry run aws-inventory scan --refresh --refresh-interval 30 --service ec2
 
 # Debug mode with performance timing
-poetry run aws-scanner --verbose scan --debug --max-workers 1 --service ec2
+poetry run aws-inventory --verbose scan --debug --max-workers 1 --service ec2
 ```
 
 ### Real-World Examples
 
 ```bash
 # Production infrastructure audit with comprehensive logging
-poetry run aws-scanner --verbose --log-file prod-audit.log scan \
+poetry run aws-inventory --verbose --log-file prod-audit.log scan \
     --debug --tag-key Environment --tag-value Production \
     --format json --output production-audit.json
 
 # Regional compliance check with detailed tracing
-poetry run aws-scanner --verbose --log-file compliance-trace.log scan \
+poetry run aws-inventory --verbose --log-file compliance-trace.log scan \
     --debug --regions eu-west-1,eu-central-1 \
     --service ec2 --format md --output eu-compliance-report.md
 
 # Application-specific resource discovery across all AWS services
-poetry run aws-scanner scan \
+poetry run aws-inventory scan \
     --all-services --tag-key Application --tag-value MyApp \
     --format table --regions us-east-1
 
 # Development environment troubleshooting with verbose logging
-poetry run aws-scanner --verbose --log-file dev-debug.log scan \
+poetry run aws-inventory --verbose --log-file dev-debug.log scan \
     --debug --regions us-west-2 \
     --tag-key Environment --tag-value Development \
     --no-cache --dry-run
 
 # Performance analysis with sequential processing
-poetry run aws-scanner --verbose --log-file perf-analysis.log scan \
+poetry run aws-inventory --verbose --log-file perf-analysis.log scan \
     --debug --max-workers 1 --service-workers 1 \
     --service ec2 --service s3 --regions us-east-1
 ```
@@ -294,7 +294,7 @@ The scanner features a comprehensive logging system with multiple configuration 
 
 ```bash
 # Global logging options (apply to all commands)
-poetry run aws-scanner --verbose --log-file /path/to/logfile.log scan --debug
+poetry run aws-inventory --verbose --log-file /path/to/logfile.log scan --debug
 
 # Debug modes explained:
 # --debug: Enable debug mode with rich console output and file logging
@@ -389,10 +389,10 @@ The advanced logging system provides powerful debugging capabilities:
 
 ```bash
 # Basic debug information
-poetry run aws-scanner scan --debug --dry-run
+poetry run aws-inventory scan --debug --dry-run
 
 # Verbose AWS API tracing for troubleshooting
-poetry run aws-scanner --verbose --log-file debug-trace.log scan --debug --service ec2
+poetry run aws-inventory --verbose --log-file debug-trace.log scan --debug --service ec2
 
 # Check debug log files (automatically created)
 ls .debug_logs/
@@ -418,19 +418,19 @@ grep -E "(boto|botocore|HTTP)" .debug_logs/aws_scanner_debug_*.log
 
 ```bash
 # Quick scan with basic output
-poetry run aws-scanner scan --regions us-east-1
+poetry run aws-inventory scan --regions us-east-1
 
 # Debug mode with detailed logging
-poetry run aws-scanner scan --debug --regions us-east-1
+poetry run aws-inventory scan --debug --regions us-east-1
 
 # Full AWS API tracing (development/troubleshooting)
-poetry run aws-scanner --verbose --log-file trace.log scan --debug --service ec2
+poetry run aws-inventory --verbose --log-file trace.log scan --debug --service ec2
 
 # Tag-based filtering across all AWS services
-poetry run aws-scanner scan --all-services --tag-key Environment --tag-value Production
+poetry run aws-inventory scan --all-services --tag-key Environment --tag-value Production
 
 # Production audit with comprehensive logging
-poetry run aws-scanner --verbose --log-file audit.log scan --debug \
+poetry run aws-inventory --verbose --log-file audit.log scan --debug \
     --tag-key Environment --tag-value Production --format json --output audit.json
 ```
 
@@ -438,11 +438,11 @@ poetry run aws-scanner --verbose --log-file audit.log scan --debug \
 
 | Scenario         | Command Pattern                                          | Purpose                        |
 |------------------|----------------------------------------------------------|--------------------------------|
-| **Basic Scan**   | `poetry run aws-scanner scan`                            | Standard resource discovery    |
-| **Debug Mode**   | `poetry run aws-scanner scan --debug`                    | Detailed execution information |
-| **API Tracing**  | `poetry run aws-scanner --verbose scan --debug`          | Full AWS API call logging      |
-| **Custom Logs**  | `poetry run aws-scanner --log-file path scan --debug`    | Custom log file location       |
-| **All Services** | `poetry run aws-scanner scan --all-services --tag-key X` | Discover 100+ AWS services     |
+| **Basic Scan**   | `poetry run aws-inventory scan`                            | Standard resource discovery    |
+| **Debug Mode**   | `poetry run aws-inventory scan --debug`                    | Detailed execution information |
+| **API Tracing**  | `poetry run aws-inventory --verbose scan --debug`          | Full AWS API call logging      |
+| **Custom Logs**  | `poetry run aws-inventory --log-file path scan --debug`    | Custom log file location       |
+| **All Services** | `poetry run aws-inventory scan --all-services --tag-key X` | Discover 100+ AWS services     |
 
 ## 📖 Documentation
 
@@ -463,7 +463,7 @@ The project includes comprehensive documentation covering all aspects of the sys
 3. Install development dependencies: Use [`./setup.sh`](./setup.sh)
 4. Set up pre-commit hooks: `pre-commit install --install-hooks`
 5. Make your changes and run tests: `./run_quick_tests.sh`
-6. Test logging changes: `poetry run aws-scanner --verbose scan --debug --dry-run`
+6. Test logging changes: `poetry run aws-inventory --verbose scan --debug --dry-run`
 7. Commit your changes: `git commit -m 'Add amazing feature'`
 8. Push to the branch: `git push origin feature/amazing-feature`
 9. Open a Pull Request
