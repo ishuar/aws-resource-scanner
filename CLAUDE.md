@@ -52,7 +52,7 @@ typer, rich). Soon renamed to **aws-resource-inventory**.
 
 ## Architecture notes
 
-- Entry point: `cli:app` (`aws-scanner`). Packages: `aws_scanner_lib`
+- Entry point: `cli:app` (`aws-inventory`, `aws-resource-inventory`). Packages: `aws_scanner_lib`
   (orchestration, cache, outputs, clients, logging) and `services`
   (per-AWS-service scanners + `services/registry.py`, the single source
   of truth mapping service name → scanner + output processor).
