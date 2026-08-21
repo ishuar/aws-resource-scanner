@@ -2,228 +2,45 @@
 VPC Service Scanner
 ------------------
 
-Handles scanning of VPC resources including VPCs, subnets, NAT gateways, internet gateways,
+Scans VPC resources: VPCs, subnets, NAT gateways, internet gateways,
 route tables, DHCP options, VPC peering connections, and VPC endpoints.
-Prioritizes Resource Groups Tagging API for efficient server-side filtering when tags are available.
-? Documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html
+Tag-based filtering is handled by the Resource Groups API at the main
+scanner level.
 
+Fully declarative: every resource type is one paginated describe call,
+so the whole scan is a Describe spec executed by the shared engine.
+? Documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html
 """
 
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from botocore.exceptions import BotoCoreError, ClientError
-
 from aws_scanner_lib.clients import get_scan_client
-from aws_scanner_lib.logging import get_logger, get_output_console
+from aws_scanner_lib.engine import Describe, ScanResult, scan_keyed
 
-# Resource Groups API utilities removed - service-agnostic approach handled at main scanner level
-
-# Service logger
-logger = get_logger("vpc_service")
-
-output_console = get_output_console()
-
-# VPC operations can be parallelized for better performance
-VPC_MAX_WORKERS = 4  # Parallel workers for different resource types
-
-
-def _paginate_describe(
-    ec2_client: Any,
-    operation: str,
-    result_key: str,
-    filters: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """Collect every page of an ec2 describe_* operation."""
-    resources: list[dict[str, Any]] = []
-    try:
-        paginator = ec2_client.get_paginator(operation)
-        page_iterator = (
-            paginator.paginate(Filters=filters) if filters else paginator.paginate()
-        )
-        for page in page_iterator:
-            resources.extend(page[result_key])
-    except (ClientError, BotoCoreError):
-        pass
-    return resources
+VPC_SPECS: dict[str, Describe] = {
+    "vpcs": Describe("describe_vpcs", "Vpcs"),
+    "subnets": Describe("describe_subnets", "Subnets"),
+    "internet_gateways": Describe("describe_internet_gateways", "InternetGateways"),
+    "route_tables": Describe("describe_route_tables", "RouteTables"),
+    "nat_gateways": Describe("describe_nat_gateways", "NatGateways"),
+    "dhcp_options": Describe("describe_dhcp_options", "DhcpOptions"),
+    "vpc_peering_connections": Describe(
+        "describe_vpc_peering_connections", "VpcPeeringConnections"
+    ),
+    "vpc_endpoints": Describe("describe_vpc_endpoints", "VpcEndpoints"),
+}
 
 
-def _scan_vpcs_parallel(
-    ec2_client: Any, filters: list[dict[str, Any]]
-) -> list[dict[str, Any]]:
-    """Scan VPCs in parallel."""
-    return _paginate_describe(ec2_client, "describe_vpcs", "Vpcs", filters)
-
-
-def _scan_subnets_parallel(
-    ec2_client: Any, filters: list[dict[str, Any]]
-) -> list[dict[str, Any]]:
-    """Scan subnets in parallel."""
-    return _paginate_describe(ec2_client, "describe_subnets", "Subnets", filters)
-
-
-def _scan_nat_gateways_parallel(
-    ec2_client: Any, filters: list[dict[str, Any]]
-) -> list[dict[str, Any]]:
-    """Scan NAT gateways in parallel."""
-    return _paginate_describe(
-        ec2_client, "describe_nat_gateways", "NatGateways", filters
-    )
-
-
-def _scan_internet_gateways_parallel(
-    ec2_client: Any, filters: list[dict[str, Any]]
-) -> list[dict[str, Any]]:
-    """Scan internet gateways in parallel."""
-    return _paginate_describe(
-        ec2_client, "describe_internet_gateways", "InternetGateways", filters
-    )
-
-
-def _scan_route_tables_parallel(
-    ec2_client: Any, filters: list[dict[str, Any]]
-) -> list[dict[str, Any]]:
-    """Scan route tables in parallel."""
-    return _paginate_describe(
-        ec2_client, "describe_route_tables", "RouteTables", filters
-    )
-
-
-def _scan_dhcp_options_parallel(ec2_client: Any) -> list[dict[str, Any]]:
-    """Scan DHCP options without tag filtering."""
-    return _paginate_describe(ec2_client, "describe_dhcp_options", "DhcpOptions", [])
-
-
-def scan_vpc(
-    session: Any,
-    region: str,
-) -> dict[str, Any]:
-    """
-    Scan all VPC resources using describe APIs without tag filtering.
-
-    Tag-based filtering is handled by the Resource Groups API at the main scanner level.
-    """
-    with logger.timer(f"vpc_scan_{region}"):
-        logger.debug("Starting VPC resource scan in region %s", region)
-
-        # Show progress only in debug mode to avoid interfering with progress bars
-        if logger.is_debug_enabled():
-            output_console.print(f"[blue]Scanning VPC resources in {region}[/blue]")
-
-        result = {}
-        ec2_client = get_scan_client(session, "ec2", region)
-
-    try:
-        # No tag filtering - use traditional approach with API-level filters
-        filters: list[dict[str, Any]] = []
-
-        # Use ThreadPoolExecutor to parallelize VPC resource scanning
-        with ThreadPoolExecutor(max_workers=VPC_MAX_WORKERS) as executor:
-            # Submit core resource tasks that support API-level filtering
-            vpcs_future = executor.submit(_scan_vpcs_parallel, ec2_client, filters)
-            subnets_future = executor.submit(
-                _scan_subnets_parallel, ec2_client, filters
-            )
-            igws_future = executor.submit(
-                _scan_internet_gateways_parallel, ec2_client, filters
-            )
-            route_tables_future = executor.submit(
-                _scan_route_tables_parallel, ec2_client, filters
-            )
-            # Submit tasks that need client-side filtering
-            nat_gateways_future = executor.submit(
-                _scan_nat_gateways_parallel, ec2_client, []
-            )
-            dhcp_options_future = executor.submit(
-                _scan_dhcp_options_parallel, ec2_client
-            )
-
-        # Collect results with error handling (works for both Resource Groups API and traditional approaches)
-        try:
-            result["vpcs"] = vpcs_future.result()
-        except (ClientError, BotoCoreError) as e:
-            logger.warning("Failed to scan VPCs in region %s: %s", region, str(e))
-            result["vpcs"] = []
-
-        try:
-            result["subnets"] = subnets_future.result()
-        except (ClientError, BotoCoreError) as e:
-            logger.warning("Failed to scan subnets in region %s: %s", region, str(e))
-            result["subnets"] = []
-
-        try:
-            result["internet_gateways"] = igws_future.result()
-        except (ClientError, BotoCoreError) as e:
-            logger.warning(
-                "Failed to scan internet gateways in region %s: %s", region, str(e)
-            )
-            result["internet_gateways"] = []
-
-        try:
-            result["route_tables"] = route_tables_future.result()
-        except (ClientError, BotoCoreError) as e:
-            logger.warning(
-                "Failed to scan route tables in region %s: %s", region, str(e)
-            )
-            result["route_tables"] = []
-
-        try:
-            result["nat_gateways"] = nat_gateways_future.result()
-        except (ClientError, BotoCoreError) as e:
-            logger.warning(
-                "Failed to scan NAT gateways in region %s: %s", region, str(e)
-            )
-            result["nat_gateways"] = []
-
-        try:
-            result["dhcp_options"] = dhcp_options_future.result()
-        except (ClientError, BotoCoreError) as e:
-            logger.warning(
-                "Failed to scan DHCP options in region %s: %s", region, str(e)
-            )
-            result["dhcp_options"] = []
-
-        # Handle remaining resources sequentially (lower priority/frequency)
-        result["vpc_peering_connections"] = []
-        result["vpc_endpoints"] = []
-
-        # VPC Peering Connections (no tag filtering)
-        try:
-            paginator = ec2_client.get_paginator("describe_vpc_peering_connections")
-            for page in paginator.paginate():
-                result["vpc_peering_connections"].extend(page["VpcPeeringConnections"])
-        except (ClientError, BotoCoreError):
-            pass
-
-        # VPC Endpoints (no tag filtering)
-        try:
-            paginator = ec2_client.get_paginator("describe_vpc_endpoints")
-            for page in paginator.paginate():
-                result["vpc_endpoints"].extend(page["VpcEndpoints"])
-        except (ClientError, BotoCoreError):
-            pass
-
-    except BotoCoreError as e:
-        logger.error("VPC scan failed in region %s: %s", region, str(e))
-
-    # Log completion with resource count
-    total_resources = sum(len(result.get(key, [])) for key in result)
-    logger.info(
-        "VPC scan completed in region %s: %d total resources", region, total_resources
-    )
-
-    # Debug-level details about each resource type
-    for resource_type, resources in result.items():
-        if resources:
-            logger.debug(
-                "VPC %s in %s: %d resources", resource_type, region, len(resources)
-            )
-
-    return result
+def scan_vpc(session: Any, region: str) -> ScanResult:
+    """Scan all VPC resources in the region (no tag filtering)."""
+    client = get_scan_client(session, "ec2", region)
+    return scan_keyed(client, VPC_SPECS, service="vpc", region=region, max_workers=4)
 
 
 def process_vpc_output(
-    service_data: dict[str, Any], region: str, flattened_resources: list[dict[str, Any]]
+    service_data: dict[str, Any],
+    region: str,
+    flattened_resources: list[dict[str, Any]],
 ) -> None:
     """Process VPC scan results for output formatting."""
     # VPCs
