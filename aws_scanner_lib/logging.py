@@ -2,7 +2,7 @@
 AWS Resource Inventory Logging Module
 ----------------------------------
 
-Unified logging system for AWS resource scanner with all features:
+Unified logging system for AWS Resource Inventory with all features:
 - Rich console output with proper formatting
 - File logging for debug sessions with caller information
 - Console/progress separation to prevent Live display conflicts

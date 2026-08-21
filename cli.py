@@ -831,7 +831,7 @@ def _generate_output_filename(
             parts.append(services[0])
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         filename = "-".join(parts) + f"-{timestamp}.json"
-        current_output_file = Path(f"/tmp/aws_resource_scanner/{filename}")
+        current_output_file = Path(f"/tmp/aws_resource_inventory/{filename}")
     else:
         current_output_file = output_file
 

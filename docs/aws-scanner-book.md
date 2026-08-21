@@ -361,7 +361,7 @@ def check_and_display_cache_status(...) -> bool:
 
 #### 3.1 Unified Logging System (`logging.py`)
 
-**Purpose**: Comprehensive unified logging system for AWS resource scanner with advanced features
+**Purpose**: Comprehensive unified logging system for AWS Resource Inventory with advanced features
 
 ##### Key Components:
 

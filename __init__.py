@@ -1,5 +1,5 @@
 """
-AWS Service Scanner Package
+AWS Resource Inventory Package
 """
 
 __version__ = "1.0.0"

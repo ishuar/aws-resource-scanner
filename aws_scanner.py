@@ -144,7 +144,7 @@ def display_banner(debug: bool) -> str:
     except (pyfiglet.FontNotFound, pyfiglet.FigletError, OSError):
         # Fallback if pyfiglet fails
         output = "[bold cyan]╔═══════════════════════════════════════════════════════════╗[/bold cyan]\n"
-        output += "[bold cyan]║                   AWS SERVICE SCANNER                    ║[/bold cyan]\n"
+        output += "[bold cyan]║                   AWS RESOURCE INVENTORY                    ║[/bold cyan]\n"
         output += "[bold cyan]╚═══════════════════════════════════════════════════════════╝[/bold cyan]"
 
     output += "\n[dim]Modular Version with Advanced Optimizations[/dim]\n"

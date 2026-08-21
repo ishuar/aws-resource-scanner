@@ -1,12 +1,12 @@
 #!/bin/bash
 #
-# Quick Test Runner for AWS Service Scanner
+# Quick Test Runner for AWS Resource Inventory
 # -----------------------------------------
 #
 # Runs essential tests to verify functionality.
 #
 
-echo "🚀 AWS Service Scanner - Quick Test Suite"
+echo "🚀 AWS Resource Inventory - Quick Test Suite"
 echo "=========================================="
 
 echo "0️⃣  Setting up environment..."
