@@ -19,24 +19,29 @@ typer, rich). Soon renamed to **aws-resource-inventory**.
    test change, it is not a refactor — split the PR.
 5. **One concern per PR.** Version bumps, behaviour changes, refactors,
    and lint migrations never share a diff.
-6. **Don't hand-roll what the platform provides.** botocore's adaptive
+6. **PR titles are release notes.** Squash-merge titles land verbatim in
+   the release-please changelog, so a title must describe the change in
+   words any user understands — never internal codenames or session
+   shorthand ("candidate 3", "part 1 of 3", "the wave"). Same for PR
+   descriptions: what changed, why, and how it was verified.
+7. **Don't hand-roll what the platform provides.** botocore's adaptive
    retry mode owns transient-error retries (the old retry_with_backoff
    wrapper is deleted — do not reintroduce one). Same instinct applies to
    pagination (use paginators, always) and diffing.
-7. **Unused features get deleted, not fixed.** `--compare`/deepdiff were
+8. **Unused features get deleted, not fixed.** `--compare`/deepdiff were
    removed after proving zero successful executions (the locked deepdiff
    couldn't even be imported). Apply the deletion test with evidence
    before investing in a fix.
-8. **Every scanning client comes from
+9. **Every scanning client comes from
    `aws_scanner_lib.clients.get_scan_client`** — never `session.client()`
    directly. It owns pool size, timeouts, adaptive retries, the
    creation lock (boto3 sessions are not thread-safe for client
    creation), and the `aws-resource-inventory` user-agent stamp.
-9. **Verify merges against real AWS**: `scripts/e2e-diff.sh` (no args)
+10. **Verify merges against real AWS**: `scripts/e2e-diff.sh` (no args)
    fetches origin and compares `origin/main~1` vs `origin/main` scan
    output. Run it after merging anything that touches scan behaviour;
    add `--tag-key/--tag-value` to cover the Resource Groups tag path.
-10. **Squash merges + stacked PRs**: after a squash lands, rebase any
+11. **Squash merges + stacked PRs**: after a squash lands, rebase any
     dependent branch onto main (`git rebase --onto main <old-base>`).
 
 ## Testing
