@@ -8,7 +8,8 @@ resource_name, which hardcode "N/A"), so any change to the shape is a
 deliberate decision, not an accident.
 """
 
-from typing import Any, Callable, Dict, List
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 
@@ -25,7 +26,7 @@ REGION = "eu-central-1"
 REQUIRED_KEYS = {"region", "resource_type", "resource_id", "resource_arn"}
 
 # Representative boto3-shaped fixtures, one resource per key the scanner emits.
-SERVICE_FIXTURES: Dict[str, Dict[str, Any]] = {
+SERVICE_FIXTURES: dict[str, dict[str, Any]] = {
     "ec2": {
         "instances": [{"InstanceId": "i-1", "Tags": [{"Key": "Name", "Value": "web"}]}],
         "volumes": [{"VolumeId": "vol-1", "Tags": []}],
@@ -122,7 +123,7 @@ SERVICE_FIXTURES: Dict[str, Dict[str, Any]] = {
     },
 }
 
-PROCESSORS: Dict[str, Callable[..., None]] = {
+PROCESSORS: dict[str, Callable[..., None]] = {
     "ec2": process_ec2_output,
     "s3": process_s3_output,
     "vpc": process_vpc_output,
@@ -132,8 +133,8 @@ PROCESSORS: Dict[str, Callable[..., None]] = {
 }
 
 
-def flatten(service: str) -> List[Dict[str, Any]]:
-    records: List[Dict[str, Any]] = []
+def flatten(service: str) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
     PROCESSORS[service](SERVICE_FIXTURES[service], REGION, records)
     return records
 
@@ -249,7 +250,7 @@ def test_generic_processor_flattens_resource_groups_records() -> None:
             },
         ]
     }
-    records: List[Dict[str, Any]] = []
+    records: list[dict[str, Any]] = []
     process_generic_service_output(service_data, REGION, records)
 
     assert records == [

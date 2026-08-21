@@ -8,7 +8,7 @@ Documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/reference
 """
 
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List
+from typing import Any
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -26,8 +26,8 @@ EC2_MAX_WORKERS = 5  # Parallel workers for different resource types
 
 
 def _scan_ec2_instances(
-    ec2_client: Any, filters: List[Dict[str, Any]]
-) -> List[Dict[str, Any]]:
+    ec2_client: Any, filters: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Scan EC2 instances in parallel."""
     instances = []
     paginator = ec2_client.get_paginator("describe_instances")
@@ -42,8 +42,8 @@ def _scan_ec2_instances(
 
 
 def _scan_ec2_volumes(
-    ec2_client: Any, filters: List[Dict[str, Any]]
-) -> List[Dict[str, Any]]:
+    ec2_client: Any, filters: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Scan EC2 volumes in parallel."""
     volumes = []
     paginator = ec2_client.get_paginator("describe_volumes")
@@ -57,8 +57,8 @@ def _scan_ec2_volumes(
 
 
 def _scan_ec2_security_groups(
-    ec2_client: Any, filters: List[Dict[str, Any]]
-) -> List[Dict[str, Any]]:
+    ec2_client: Any, filters: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Scan EC2 security groups in parallel."""
     security_groups = []
     paginator = ec2_client.get_paginator("describe_security_groups")
@@ -71,7 +71,7 @@ def _scan_ec2_security_groups(
     return security_groups
 
 
-def _scan_ec2_amis(ec2_client: Any) -> List[Dict[str, Any]]:
+def _scan_ec2_amis(ec2_client: Any) -> list[dict[str, Any]]:
     """Scan EC2 AMIs without tag filtering."""
     amis = []
     try:
@@ -87,7 +87,7 @@ def _scan_ec2_amis(ec2_client: Any) -> List[Dict[str, Any]]:
     return amis
 
 
-def _scan_ec2_snapshots(ec2_client: Any) -> List[Dict[str, Any]]:
+def _scan_ec2_snapshots(ec2_client: Any) -> list[dict[str, Any]]:
     """Scan EC2 snapshots without tag filtering."""
     snapshots = []
     try:
@@ -106,7 +106,7 @@ def _scan_ec2_snapshots(ec2_client: Any) -> List[Dict[str, Any]]:
 def scan_ec2(
     session: Any,
     region: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Scan all EC2 resources using describe APIs without tag filtering.
 
@@ -128,21 +128,21 @@ def scan_ec2(
 
     try:
         # Empty filters - get all resources in the region
-        filters: List[Dict[str, Any]] = []
+        filters: list[dict[str, Any]] = []
 
         # Use ThreadPoolExecutor to parallelize resource scanning
-        with logger.timer(f"EC2 parallel scan in {region}"):
-            with ThreadPoolExecutor(max_workers=EC2_MAX_WORKERS) as executor:
-                # Submit all tasks
-                instances_future = executor.submit(
-                    _scan_ec2_instances, ec2_client, filters
-                )
-                volumes_future = executor.submit(_scan_ec2_volumes, ec2_client, filters)
-                security_groups_future = executor.submit(
-                    _scan_ec2_security_groups, ec2_client, filters
-                )
-                amis_future = executor.submit(_scan_ec2_amis, ec2_client)
-                snapshots_future = executor.submit(_scan_ec2_snapshots, ec2_client)
+        with (
+            logger.timer(f"EC2 parallel scan in {region}"),
+            ThreadPoolExecutor(max_workers=EC2_MAX_WORKERS) as executor,
+        ):
+            # Submit all tasks
+            instances_future = executor.submit(_scan_ec2_instances, ec2_client, filters)
+            volumes_future = executor.submit(_scan_ec2_volumes, ec2_client, filters)
+            security_groups_future = executor.submit(
+                _scan_ec2_security_groups, ec2_client, filters
+            )
+            amis_future = executor.submit(_scan_ec2_amis, ec2_client)
+            snapshots_future = executor.submit(_scan_ec2_snapshots, ec2_client)
 
         # Collect results in the expected dictionary structure
         try:
@@ -213,7 +213,7 @@ def scan_ec2(
 
 
 def process_ec2_output(
-    service_data: Dict[str, Any], region: str, flattened_resources: List[Dict[str, Any]]
+    service_data: dict[str, Any], region: str, flattened_resources: list[dict[str, Any]]
 ) -> None:
     """Process EC2 scan results for output formatting."""
     # EC2 Instances

@@ -7,8 +7,9 @@ Every test here runs without real AWS credentials:
 - moto provides the fake AWS backend for functional scanner tests
 """
 
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 import boto3
 import pytest

@@ -7,7 +7,7 @@ Handles scanning of S3 resources including buckets.
 """
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -27,9 +27,9 @@ S3_MAX_WORKERS = 6
 
 def _process_bucket_parallel(
     s3_client: Any,
-    bucket: Dict[str, Any],
+    bucket: dict[str, Any],
     region: str,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Process a single bucket in parallel - check region only."""
     try:
         bucket_name = bucket["Name"]
@@ -70,7 +70,7 @@ def _process_bucket_parallel(
 def scan_s3(
     session: Any,
     region: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Scan all S3 resources in the specified region without tag filtering."""
     logger.debug("Starting S3 service scan in region %s", region)
 
@@ -143,7 +143,7 @@ def scan_s3(
         logger.log_error_context(e, {"region": region, "operation": "s3_scan"})
 
     # Log completion with resource count
-    total_resources = sum(len(result.get(key, [])) for key in result.keys())
+    total_resources = sum(len(result.get(key, [])) for key in result)
     logger.info(
         "S3 scan completed in region %s: %d total resources", region, total_resources
     )
@@ -159,7 +159,7 @@ def scan_s3(
 
 
 def process_s3_output(
-    service_data: Dict[str, Any], region: str, flattened_resources: List[Dict[str, Any]]
+    service_data: dict[str, Any], region: str, flattened_resources: list[dict[str, Any]]
 ) -> None:
     """Process S3 scan results for output formatting."""
     for bucket in service_data.get("buckets", []):

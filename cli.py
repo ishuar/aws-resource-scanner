@@ -13,7 +13,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -66,7 +66,7 @@ shutdown_requested = threading.Event()
 shutdown_printed = threading.Event()
 
 # Global context for log file (shared across commands)
-app_log_file: Optional[Path] = DEFAULT_DEBUG_LOG_DIR
+app_log_file: Path | None = DEFAULT_DEBUG_LOG_DIR
 
 # Global context for verbose logging (shared across commands)
 app_verbose: bool = False
@@ -87,7 +87,7 @@ console = Console()
 
 @app.callback()
 def main(
-    log_file: Optional[Path] = typer.Option(
+    log_file: Path | None = typer.Option(
         None,
         "--log-file",
         "-l",
@@ -123,20 +123,20 @@ def main(
 
 @app.command(name="scan")
 def scan_command(
-    regions: Optional[str] = typer.Option(
+    regions: str | None = typer.Option(
         None, "--regions", "-r", help="Comma-separated AWS regions to scan"
     ),
-    services: List[str] = typer.Option(
+    services: list[str] = typer.Option(
         SUPPORTED_SERVICES, "--service", "-s", help="AWS services to scan"
     ),
-    profile: Optional[str] = typer.Option(
+    profile: str | None = typer.Option(
         aws_profile, "--profile", "-p", help="AWS profile to use"
     ),
-    tag_key: Optional[str] = typer.Option(None, "--tag-key", help="Filter by tag key"),
-    tag_value: Optional[str] = typer.Option(
+    tag_key: str | None = typer.Option(None, "--tag-key", help="Filter by tag key"),
+    tag_value: str | None = typer.Option(
         None, "--tag-value", help="Filter by tag value"
     ),
-    output_file: Optional[Path] = typer.Option(
+    output_file: Path | None = typer.Option(
         None,
         "--output",
         "-o",
@@ -374,7 +374,7 @@ def scan_command(
         console.print(
             "\n[yellow]💡 Please check your AWS configuration and try again.[/yellow]"
         )
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     # Handle dry run
     if dry_run:
@@ -578,9 +578,9 @@ def scan_command(
 
 def _display_configuration_panel(
     all_services: bool,
-    tag_key: Optional[str],
-    tag_value: Optional[str],
-    services: List[str],
+    tag_key: str | None,
+    tag_value: str | None,
+    services: list[str],
     max_workers: int,
     service_workers: int,
     use_cache: bool,
@@ -638,7 +638,7 @@ def _display_configuration_panel(
     )
 
 
-def _handle_regions(regions: Optional[str]) -> List[str]:
+def _handle_regions(regions: str | None) -> list[str]:
     """Handle region processing and return region list."""
     # List of all AWS Europe and US regions
     default_europe_us_regions = [
@@ -663,10 +663,10 @@ def _handle_regions(regions: Optional[str]) -> List[str]:
     return region_list
 
 
-def _display_regions_panel(region_list: List[str], debug: bool) -> None:
+def _display_regions_panel(region_list: list[str], debug: bool) -> None:
     """Display the regions panel."""
     # Create regions panel with more compact layout
-    regions_display: Union[str, Table]
+    regions_display: str | Table
     if len(region_list) <= 4:
         # Show regions in a single row for small lists
         regions_display = "  ".join([f"{region}" for region in region_list])
@@ -706,15 +706,15 @@ def _display_regions_panel(region_list: List[str], debug: bool) -> None:
 
 
 def _handle_dry_run(
-    region_list: List[str],
-    services: List[str],
-    tag_key: Optional[str],
-    tag_value: Optional[str],
+    region_list: list[str],
+    services: list[str],
+    tag_key: str | None,
+    tag_value: str | None,
     max_workers: int,
     service_workers: int,
     use_cache: bool,
     output_format: str,
-    output_file: Optional[Path],
+    output_file: Path | None,
 ) -> None:
     """Handle dry run display."""
     console.print(
@@ -782,10 +782,10 @@ def _display_scan_start_message(
     refresh: bool,
     scan_count: int,
     all_services: bool,
-    tag_key: Optional[str],
-    tag_value: Optional[str],
-    services: List[str],
-    region_list: List[str],
+    tag_key: str | None,
+    tag_value: str | None,
+    services: list[str],
+    region_list: list[str],
 ) -> None:
     """Display the scan start message."""
     if refresh:
@@ -811,11 +811,11 @@ def _display_scan_start_message(
 
 
 def _generate_output_filename(
-    output_file: Optional[Path],
-    tag_key: Optional[str],
-    tag_value: Optional[str],
-    region_list: List[str],
-    services: List[str],
+    output_file: Path | None,
+    tag_key: str | None,
+    tag_value: str | None,
+    region_list: list[str],
+    services: list[str],
 ) -> Path:
     """Generate output filename dynamically if not provided."""
     if output_file is None:
@@ -860,10 +860,10 @@ def _display_scan_completion(
 
 
 def _check_cache_availability(
-    region_list: List[str],
-    services: List[str],
-    tag_key: Optional[str],
-    tag_value: Optional[str],
+    region_list: list[str],
+    services: list[str],
+    tag_key: str | None,
+    tag_value: str | None,
     all_services: bool,
 ) -> bool:
     """Check if cached results are available for the given parameters."""

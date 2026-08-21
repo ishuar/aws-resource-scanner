@@ -7,7 +7,8 @@ format silently invalidates every user's warm cache) and keep the
 store→retrieve round-trip lossless.
 """
 
-from datetime import datetime, timedelta
+import time
+from datetime import timedelta
 from pathlib import Path
 
 from aws_scanner_lib.cache import cache_result, get_cache_key, get_cached_result
@@ -64,8 +65,8 @@ class TestCacheRoundTrip:
         # Age the cache file past the 10-minute TTL via its mtime,
         # which is what the TTL check reads.
         cache_file = next(isolated_cache.glob("*.pkl"))
-        expired = datetime.now() - timedelta(minutes=11)
-        os.utime(cache_file, (expired.timestamp(), expired.timestamp()))
+        expired = time.time() - timedelta(minutes=11).total_seconds()
+        os.utime(cache_file, (expired, expired))
 
         assert get_cached_result(REGION, "ec2") is None
 

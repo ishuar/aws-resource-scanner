@@ -6,9 +6,9 @@ Handles caching of scan results to improve performance and reduce API calls.
 
 import hashlib
 import pickle
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional, cast
+from typing import Any, cast
 
 from .logging import get_logger
 
@@ -23,8 +23,8 @@ logger = get_logger("cache")
 def get_cache_key(
     region: str,
     service: str,
-    tag_key: Optional[str] = None,
-    tag_value: Optional[str] = None,
+    tag_key: str | None = None,
+    tag_value: str | None = None,
 ) -> str:
     """Generate a cache key for the given parameters."""
     cache_data = f"{region}:{service}:{tag_key or ''}:{tag_value or ''}"
@@ -34,9 +34,9 @@ def get_cache_key(
 def get_cached_result(
     region: str,
     service: str,
-    tag_key: Optional[str] = None,
-    tag_value: Optional[str] = None,
-) -> Optional[Dict[str, Any]]:
+    tag_key: str | None = None,
+    tag_value: str | None = None,
+) -> dict[str, Any] | None:
     """Get cached result if available and not expired."""
     if not CACHE_DIR.exists():
         logger.debug("Cache directory does not exist")
@@ -51,8 +51,12 @@ def get_cached_result(
                 cached_data = pickle.load(f)
 
             # Check if cache is still valid
-            cache_time = datetime.fromtimestamp(cache_file.stat().st_mtime)
-            if datetime.now() - cache_time < timedelta(minutes=CACHE_TTL_MINUTES):
+            cache_time = datetime.fromtimestamp(
+                cache_file.stat().st_mtime, tz=timezone.utc
+            )
+            if datetime.now(timezone.utc) - cache_time < timedelta(
+                minutes=CACHE_TTL_MINUTES
+            ):
                 resource_count = (
                     len(cached_data)
                     if isinstance(cached_data, list)
@@ -71,10 +75,11 @@ def get_cached_result(
                     hit=True,
                     resource_count=resource_count,
                 )
-                return cast(Dict[str, Any], cached_data)
+                return cast(dict[str, Any], cached_data)
             else:
                 logger.debug("Cache expired for %s:%s", region, service)
-        except Exception as e:
+        # Cache is best-effort: any read failure is just a miss.
+        except Exception as e:  # noqa: BLE001
             logger.debug("Cache read error for %s:%s: %s", region, service, str(e))
 
     logger.log_cache_operation(
@@ -87,8 +92,8 @@ def cache_result(
     region: str,
     service: str,
     result: Any,
-    tag_key: Optional[str] = None,
-    tag_value: Optional[str] = None,
+    tag_key: str | None = None,
+    tag_value: str | None = None,
 ) -> None:
     """Cache the scan result."""
     try:
@@ -114,5 +119,6 @@ def cache_result(
             resource_count=resource_count,
         )
 
-    except Exception as e:
+    # Cache is best-effort: a write failure must not break the scan.
+    except Exception as e:  # noqa: BLE001
         logger.debug("Cache write error for %s:%s: %s", region, service, str(e))

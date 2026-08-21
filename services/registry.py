@@ -11,8 +11,9 @@ its scanner with its output processor. The scan dispatcher
 means writing its module and adding one entry to ``SERVICES``.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List
+from typing import Any
 
 from services.autoscaling_service import process_autoscaling_output, scan_autoscaling
 from services.ec2_service import process_ec2_output, scan_ec2
@@ -22,9 +23,9 @@ from services.s3_service import process_s3_output, scan_s3
 from services.vpc_service import process_vpc_output, scan_vpc
 
 # (session, region[, tag_key, tag_value]) -> {resource_key: [raw boto3 dicts]}
-ScanFunc = Callable[..., Dict[str, Any]]
+ScanFunc = Callable[..., dict[str, Any]]
 # (service_data, region, flattened_resources) -> None (appends in place)
-ProcessOutputFunc = Callable[[Dict[str, Any], str, List[Dict[str, Any]]], None]
+ProcessOutputFunc = Callable[[dict[str, Any], str, list[dict[str, Any]]], None]
 
 
 @dataclass(frozen=True)
@@ -38,7 +39,7 @@ class ServiceRegistration:
     accepts_tags: bool = False
 
 
-SERVICES: Dict[str, ServiceRegistration] = {
+SERVICES: dict[str, ServiceRegistration] = {
     "ec2": ServiceRegistration(scan_ec2, process_ec2_output),
     "s3": ServiceRegistration(scan_s3, process_s3_output),
     "ecs": ServiceRegistration(scan_ecs, process_ecs_output),
@@ -49,4 +50,4 @@ SERVICES: Dict[str, ServiceRegistration] = {
     ),
 }
 
-SUPPORTED_SERVICES: List[str] = list(SERVICES)
+SUPPORTED_SERVICES: list[str] = list(SERVICES)

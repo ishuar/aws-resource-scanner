@@ -18,7 +18,7 @@ import logging
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -34,7 +34,7 @@ class SimpleTimer:
     def __init__(self, logger: logging.Logger, operation: str):
         self.logger = logger
         self.operation = operation
-        self.start_time: Optional[float] = None
+        self.start_time: float | None = None
 
     def __enter__(self) -> "SimpleTimer":
         self.start_time = time.perf_counter()
@@ -76,14 +76,14 @@ class AWSLogger:
         self.logger = logging.getLogger(name)
         self._debug_mode = False
         self._verbose_mode = False
-        self._log_file: Optional[Path] = None
-        self._progress_console: Optional[Console] = None
+        self._log_file: Path | None = None
+        self._progress_console: Console | None = None
         self._is_configured = False
 
     def configure(
         self,
         debug: bool = False,
-        log_file: Optional[Path] = None,
+        log_file: Path | None = None,
         verbose: bool = False,
     ) -> None:
         """One-method setup for all logging needs."""
@@ -263,7 +263,7 @@ class AWSLogger:
             )
         return self._progress_console
 
-    def disable_console_output(self, log_file_path: Optional[Path] = None) -> None:
+    def disable_console_output(self, log_file_path: Path | None = None) -> None:
         """Disable console logging during Live displays with user info."""
         if log_file_path and self._debug_mode:
             self.logger.info(
@@ -278,7 +278,7 @@ class AWSLogger:
             if isinstance(handler, RichHandler):
                 handler.setLevel(logging.CRITICAL)  # Effectively disable
 
-    def enable_console_output(self, log_file_path: Optional[Path] = None) -> None:
+    def enable_console_output(self, log_file_path: Path | None = None) -> None:
         """Re-enable console logging after Live displays."""
         for handler in self.logger.handlers:
             if isinstance(handler, RichHandler):
@@ -376,7 +376,7 @@ class AWSLogger:
         )
 
     def log_cache_operation(
-        self, operation: str, key: str, hit: Optional[bool] = None, **kwargs: Any
+        self, operation: str, key: str, hit: bool | None = None, **kwargs: Any
     ) -> None:
         """Log cache operations with enhanced context."""
         if hit is not None:
@@ -397,7 +397,7 @@ class AWSLogger:
             )
 
     def log_error_context(
-        self, error: Exception, context: Optional[Dict[str, Any]] = None
+        self, error: Exception, context: dict[str, Any] | None = None
     ) -> None:
         """Log error with contextual information."""
         error_msg = f"❌ Error: {type(error).__name__}: {error}"
@@ -408,11 +408,11 @@ class AWSLogger:
 
 
 # Global logger instance
-_aws_logger: Optional[AWSLogger] = None
+_aws_logger: AWSLogger | None = None
 
 
 def configure_logging(
-    debug: bool = False, log_file: Optional[Path] = None, verbose: bool = False
+    debug: bool = False, log_file: Path | None = None, verbose: bool = False
 ) -> AWSLogger:
     """
     Configure and return the AWS scanner logging system.
@@ -462,7 +462,7 @@ def get_output_console() -> Console:
     return logger.get_progress_console()
 
 
-def create_debug_log_file(log_file: Optional[Path]) -> Path:
+def create_debug_log_file(log_file: Path | None) -> Path:
     """
     Create a debug log file path with timestamp.
 

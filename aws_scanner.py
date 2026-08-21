@@ -8,8 +8,9 @@ and result processing, separated from CLI concerns.
 """
 
 import threading
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 import boto3
 import pyfiglet
@@ -37,11 +38,11 @@ console = Console()
 logger = get_logger()
 
 # Thread-safe session pool for connection reuse
-_session_pool: Dict[str, boto3.Session] = {}
+_session_pool: dict[str, boto3.Session] = {}
 _session_pool_lock = threading.Lock()
 
 
-def get_session(profile_name: Optional[str] = None) -> boto3.Session:
+def get_session(profile_name: str | None = None) -> boto3.Session:
     """Get AWS session with thread-safe connection pooling."""
     cache_key = profile_name or "default"
 
@@ -78,7 +79,7 @@ def get_session(profile_name: Optional[str] = None) -> boto3.Session:
 
 
 def validate_aws_credentials(
-    session: boto3.Session, profile_name: Optional[str] = None
+    session: boto3.Session, profile_name: str | None = None
 ) -> tuple[bool, str]:
     """
     Validate AWS credentials by attempting to call STS get-caller-identity.
@@ -129,7 +130,8 @@ def validate_aws_credentials(
             return False, f"❌ AWS credentials invalid or expired: {e}"
         return False, f"❌ AWS API error: {e}"
 
-    except Exception as e:
+    # User-facing boundary: any failure becomes a message, never a crash.
+    except Exception as e:  # noqa: BLE001
         return False, f"❌ Unexpected error validating credentials: {e}"
 
 
@@ -154,10 +156,10 @@ def display_banner(debug: bool) -> str:
 
 
 def check_and_display_cache_status(
-    region_list: List[str],
-    services: List[str],
-    tag_key: Optional[str],
-    tag_value: Optional[str],
+    region_list: list[str],
+    services: list[str],
+    tag_key: str | None,
+    tag_value: str | None,
     use_cache: bool,
     all_services: bool,
 ) -> bool:
@@ -216,7 +218,7 @@ def check_and_display_cache_status(
 
 
 def display_region_summaries(
-    all_results: Dict[str, Dict[str, Any]], debug: bool
+    all_results: dict[str, dict[str, Any]], debug: bool
 ) -> None:
     """Display region-wise resource summaries after scanning is complete."""
 
@@ -278,17 +280,17 @@ def display_region_summaries(
 
 def perform_scan(
     session: boto3.Session,
-    region_list: List[str],
-    services: List[str],
-    tag_key: Optional[str],
-    tag_value: Optional[str],
+    region_list: list[str],
+    services: list[str],
+    tag_key: str | None,
+    tag_value: str | None,
     max_workers: int,
     service_workers: int,
     use_cache: bool,
-    progress: Optional[Progress] = None,
+    progress: Progress | None = None,
     all_services: bool = False,
-    shutdown_event: Optional[threading.Event] = None,
-) -> Dict[str, Dict[str, Any]]:
+    shutdown_event: threading.Event | None = None,
+) -> dict[str, dict[str, Any]]:
     """Perform the AWS scanning operation with optional progress reporting."""
     logger.debug(
         "Starting perform_scan with %d regions, %d services",
@@ -426,15 +428,15 @@ def perform_scan(
                                     ].total,
                                 )
                             logger.info("No resources found in region %s", region_name)
-                except Exception as e:
-                    if progress and main_task is not None:
+                # One region failing must not kill the other regions.
+                except Exception as e:  # noqa: BLE001
+                    if progress and main_task is not None and region in region_tasks:
                         # Update the region task to show error
-                        if region in region_tasks:
-                            progress.update(
-                                region_tasks[region],
-                                description=f"  ❌ {region}",
-                                completed=progress.tasks[region_tasks[region]].total,
-                            )
+                        progress.update(
+                            region_tasks[region],
+                            description=f"  ❌ {region}",
+                            completed=progress.tasks[region_tasks[region]].total,
+                        )
                     logger.error("Failed to scan region %s: %s", region, str(e))
                 finally:
                     if progress and main_task is not None:

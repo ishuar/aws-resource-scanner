@@ -9,7 +9,7 @@ planned service-registry and spec-driven-scanner refactors.
 """
 
 import threading
-from typing import Any, List, Tuple
+from typing import Any
 
 from botocore.exceptions import ClientError
 
@@ -104,7 +104,7 @@ class TestScanRegion:
             CreateBucketConfiguration={"LocationConstraint": REGION},
         )
 
-        progress_calls: List[Tuple[int, int, str, str]] = []
+        progress_calls: list[tuple[int, int, str, str]] = []
 
         def on_progress(completed: int, total: int, service: str, region: str) -> None:
             progress_calls.append((completed, total, service, region))
@@ -123,7 +123,7 @@ class TestScanRegion:
         assert progress_calls == [(1, 1, "s3", REGION)]
 
     def test_unsupported_services_are_silently_filtered(self, aws_session: Any) -> None:
-        progress_calls: List[Tuple[int, int, str, str]] = []
+        progress_calls: list[tuple[int, int, str, str]] = []
 
         _, results, _ = scan_region(
             aws_session,

@@ -6,7 +6,7 @@ Handles scanning operations for AWS services across regions.
 
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import boto3
 from botocore.exceptions import (
@@ -31,10 +31,10 @@ logger = get_logger()
 def scan_all_services_with_tags(
     session: boto3.Session,
     region: str,
-    tag_key: Optional[str] = None,
-    tag_value: Optional[str] = None,
+    tag_key: str | None = None,
+    tag_value: str | None = None,
     use_cache: bool = True,
-) -> Tuple[str, Dict[str, Any], float]:
+) -> tuple[str, dict[str, Any], float]:
     """
     Scan ALL AWS services using Resource Groups Tagging API.
 
@@ -116,10 +116,10 @@ def scan_service(
     session: boto3.Session,
     region: str,
     service: str,
-    tag_key: Optional[str] = None,
-    tag_value: Optional[str] = None,
+    tag_key: str | None = None,
+    tag_value: str | None = None,
     use_cache: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Route service scan to appropriate modular scanner with improved error handling and caching."""
 
     # Check cache first
@@ -129,7 +129,7 @@ def scan_service(
             # Cache message now displayed upfront, just return silently
             return cached_result
 
-    def _do_scan() -> Dict[str, Any]:
+    def _do_scan() -> dict[str, Any]:
         registration = SERVICES.get(service)
         if registration is None:
             logger.warning("Service scan for '%s' not implemented yet", service)
@@ -168,14 +168,14 @@ def scan_service(
 def scan_region(
     session: boto3.Session,
     region: str,
-    services: List[str],
-    tag_key: Optional[str] = None,
-    tag_value: Optional[str] = None,
+    services: list[str],
+    tag_key: str | None = None,
+    tag_value: str | None = None,
     service_workers: int = 4,
     use_cache: bool = True,
-    progress_callback: Optional[Any] = None,
-    shutdown_event: Optional[Any] = None,
-) -> Tuple[str, Dict[str, Any], float]:
+    progress_callback: Any | None = None,
+    shutdown_event: Any | None = None,
+) -> tuple[str, dict[str, Any], float]:
     """Scan all services in a single region with parallel service scanning."""
     start_time = time.time()
     region_results = {}
@@ -208,10 +208,11 @@ def scan_region(
 
         # Collect results as they complete
         service_results_summary = {}
-        completed_services = 0
         total_services = len(future_to_service)
 
-        for future in as_completed(future_to_service):
+        for completed_services, future in enumerate(
+            as_completed(future_to_service), start=1
+        ):
             # Check for shutdown request before processing each service
             if shutdown_event and shutdown_event.is_set():
                 logger.warning("Cancelling remaining services in region %s", region)
@@ -250,7 +251,6 @@ def scan_region(
                 service_results_summary[service] = 0
 
             # Update progress if callback provided
-            completed_services += 1
             if progress_callback:
                 progress_callback(completed_services, total_services, service, region)
 

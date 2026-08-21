@@ -9,14 +9,14 @@ Groups API) are routed to processors.
 
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from aws_scanner_lib.outputs import generate_markdown_summary, output_results
 
 REGION = "eu-central-1"
 
 
-def traditional_results() -> Dict[str, Any]:
+def traditional_results() -> dict[str, Any]:
     """Nested results as scan_region produces them (traditional path)."""
     return {
         REGION: {
@@ -26,7 +26,7 @@ def traditional_results() -> Dict[str, Any]:
     }
 
 
-def resource_groups_results() -> Dict[str, Any]:
+def resource_groups_results() -> dict[str, Any]:
     """Nested results as the Resource Groups API path produces them."""
     return {
         REGION: {
