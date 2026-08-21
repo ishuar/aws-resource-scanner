@@ -133,7 +133,7 @@ Cost Explorer, Cost Optimization Hub, CloudWatch metrics, CUR, EOL detection, an
 - Multi-account: assume-role fan-out across an AWS Organization; aggregate report.
 - Scheduled runs (cron/CI) feeding the diff feature.
 
-**Existing related item:** `IDEAS.md` action "support `--all-services` without tag filters" — complements the tag-drift provider (Tagging API only sees tagged/previously-tagged resources; the per-service scanners remain the authoritative left side of the diff).
+**Related idea (unscheduled):** support `--all-services` without tag filters — complements the tag-drift provider (Tagging API only sees tagged/previously-tagged resources; the per-service scanners remain the authoritative left side of the diff).
 
 ## 7. Decision log (grilling session, 2026-08-22)
 

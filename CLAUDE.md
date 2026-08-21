@@ -2,7 +2,9 @@
 
 **aws-resource-inventory** — Python CLI that inventories AWS resources
 across regions/services (boto3, typer, rich). Entry points:
-`aws-inventory`, `aws-resource-inventory`.
+`aws-inventory`, `aws-resource-inventory`. The old `aws-scanner` and
+`aws-scan` commands were removed before first release — do not
+reintroduce them.
 
 ## Product context
 
@@ -19,7 +21,8 @@ across regions/services (boto3, typer, rich). Entry points:
 1. **Best practice over workaround — always.** Fix the cause, not the
    symptom. If a tool's default is wrong for us, configure it explicitly
    and say why in a comment; never patch around it silently. Transitional
-   measures must be named as such and completed.
+   measures must be named as such and completed (the minimal ruff
+   `select` pin was transitional; the curated rule set completed it).
 2. **Explicit over implicit configuration.** Tool behaviour must never
    change as a side effect of a version bump. Example: `ruff.lint.select`
    is pinned in pyproject because ruff's built-in defaults drift between
@@ -69,11 +72,20 @@ across regions/services (boto3, typer, rich). Entry points:
     Registry dicts over plugin frameworks (`services/registry.py` is the
     house pattern). One adapter is a hypothetical seam; two make it real.
 
+## Git rules
+
+- **Never commit or push to `main` — no exceptions.** This includes
+  indirect writes such as `gh api PUT /contents` or any other API call
+  that creates a commit on `main`.
+- All changes go through a new branch (create one with `git switch -c`
+  or a `git worktree`) and a pull request into `main`.
+
 ## Python style
 
 - Type hints on every public function; `from __future__` not needed
-  (3.10+). Frozen `@dataclass` for domain types (`ServiceRegistration`,
-  `Finding`) — not dicts, not classes with behaviour.
+  (3.10+). Frozen `@dataclass` for domain types (`ServiceRegistration` today;
+  `Finding` arrives with the waste verb, see PRODUCT.md) — not dicts,
+  not classes with behaviour.
 - Pure functions for logic (rules, transforms); side effects (AWS calls,
   console output, cache) stay at the edges. Return results, don't mutate
   arguments.
@@ -110,16 +122,22 @@ across regions/services (boto3, typer, rich). Entry points:
 
 ## Architecture notes
 
-- Packages: `aws_scanner_lib` (orchestration, cache, outputs, clients,
-  logging) and `services` (per-AWS-service scanners +
+- Packages: `aws_scanner_lib` (engine, orchestration, cache, outputs,
+  clients, logging) and `services` (per-AWS-service scanners +
   `services/registry.py`, the single source of truth mapping service
   name → scanner + output processor).
 - Adding a service = one module + one `SERVICES` registry entry.
 - The flattened record contract (region/resource_type/resource_id/
   resource_arn, optional resource_name) is pinned by
   tests/test_resource_shape.py — changing it is a deliberate act.
-- Refactor roadmap (C3 spec-driven scanner collapse → C4 typed Resource
-  dataclass → C5 progress seam + logging shrink → C6 unified
-  RegionScanner) is in flight — check open PRs and branches for current
-  status rather than trusting this file.
+- Shipped: the shared scanning engine (`aws_scanner_lib/engine.py`) —
+  all six scanners run on it; pagination, guarded parallel collection,
+  ordered fan-out, and tag matching live there and nowhere else.
+- Remaining deepening work, in order: a typed `Resource` dataclass at
+  the output seam (replacing the ad-hoc record dicts, then filling in
+  missing resource names); a progress-event seam so rich rendering
+  lives only in cli.py (plus shrinking the logging module and adding
+  CLI-level tests); one shared scan interface over the per-service and
+  tag-scan paths so retries/cancellation/progress apply to both.
+  Check open PRs for live status.
 - Product roadmap for the `waste` verb: `PRODUCT.md` §5.
