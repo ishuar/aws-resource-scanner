@@ -2,141 +2,118 @@
 ELB Service Scanner
 ------------------
 
-Handles scanning of ELB resources including load balancers, listeners, rules, and target groups.
+Scans ELBv2 resources: load balancers, target groups, listeners, and
+listener rules — a dependent traversal (listeners hang off load
+balancers, rules off listeners), annotated so the output processors can
+name each resource's parent.
 ?Documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elbv2.html
-
 """
 
+from functools import partial
 from typing import Any
 
-from botocore.exceptions import BotoCoreError, ClientError
+from botocore.exceptions import ClientError
 
 from aws_scanner_lib.clients import get_scan_client
-from aws_scanner_lib.logging import get_logger, get_output_console
+from aws_scanner_lib.engine import (
+    ResourceList,
+    ScanResult,
+    collect_pages,
+    finish,
+    map_parallel,
+    run_parallel,
+)
+from aws_scanner_lib.logging import get_logger
 
-# Service logger
-logger = get_logger("elb_service")
+logger = get_logger()
 
-# Separate console for user output to avoid interfering with logs and progress bars
-output_console = get_output_console()
+# Per-parent listener/rule lookups fan out on threads.
+ELB_CHILD_WORKERS = 4
 
 
-def scan_elb(
-    session: Any,
-    region: str,
-) -> dict[str, Any]:
-    """Scan all ELB resources in the specified region without tag filtering."""
-    logger.debug("Starting ELB service scan in region %s", region)
-
-    # Show progress to user on separate console (will not conflict with logging or progress bars)
-    if logger.is_debug_enabled():
-        output_console.print(f"[blue]Scanning ELB resources in {region}[/blue]")
-
-    logger.log_aws_operation("elbv2", "describe_load_balancers", region)
-
-    elbv2_client = get_scan_client(session, "elbv2", region)
-    result = {}
+def _attach_tags(elbv2_client: Any, arn_field: str, resource: dict[str, Any]) -> None:
+    arn = resource[arn_field]
     try:
-        # Load Balancers (ALB/NLB) with pagination
-        load_balancers = []
-        paginator = elbv2_client.get_paginator("describe_load_balancers")
-        page_iterator = paginator.paginate()
+        descriptions = elbv2_client.describe_tags(ResourceArns=[arn]).get(
+            "TagDescriptions", []
+        )
+        resource["Tags"] = descriptions[0].get("Tags", []) if descriptions else []
+    except ClientError as e:
+        logger.warning("Could not get tags for %s: %s", arn, e)
+        resource["Tags"] = []
 
-        for page in page_iterator:
-            load_balancers.extend(page["LoadBalancers"])
 
-        # Get all load balancers with their tags (no filtering)
+def _listeners_of(elbv2_client: Any, lb: dict[str, Any]) -> ResourceList:
+    listeners = collect_pages(
+        elbv2_client,
+        "describe_listeners",
+        "Listeners",
+        LoadBalancerArn=lb["LoadBalancerArn"],
+    )
+    for listener in listeners:
+        listener["LoadBalancerArn"] = lb["LoadBalancerArn"]
+        listener["LoadBalancerName"] = lb["LoadBalancerName"]
+    return listeners
+
+
+def _rules_of(elbv2_client: Any, listener: dict[str, Any]) -> ResourceList:
+    rules = collect_pages(
+        elbv2_client, "describe_rules", "Rules", ListenerArn=listener["ListenerArn"]
+    )
+    for rule in rules:
+        rule["ListenerArn"] = listener["ListenerArn"]
+        rule["LoadBalancerArn"] = listener["LoadBalancerArn"]
+        rule["LoadBalancerName"] = listener["LoadBalancerName"]
+    return rules
+
+
+def scan_elb(session: Any, region: str) -> ScanResult:
+    """Scan all ELBv2 resources in the region (no tag filtering)."""
+    elbv2_client = get_scan_client(session, "elbv2", region)
+
+    def load_balancers_with_tags() -> ResourceList:
+        load_balancers = collect_pages(
+            elbv2_client, "describe_load_balancers", "LoadBalancers"
+        )
         for lb in load_balancers:
-            lb_arn = lb["LoadBalancerArn"]
-            try:
-                tags_response = elbv2_client.describe_tags(ResourceArns=[lb_arn])
-                tag_descriptions = tags_response.get("TagDescriptions", [])
-                lb["Tags"] = (
-                    tag_descriptions[0].get("Tags", []) if tag_descriptions else []
-                )
-            except ClientError as e:
-                output_console.print(
-                    f"[yellow]Could not get tags for load balancer {lb_arn}: {e}[/yellow]"
-                )
-                lb["Tags"] = []
+            _attach_tags(elbv2_client, "LoadBalancerArn", lb)
+        return load_balancers
 
-        # Target Groups with pagination
-        target_groups = []
-        paginator = elbv2_client.get_paginator("describe_target_groups")
-        for page in paginator.paginate():
-            target_groups.extend(page["TargetGroups"])
-
-        # Get all target groups with their tags (no filtering)
+    def target_groups_with_tags() -> ResourceList:
+        target_groups = collect_pages(
+            elbv2_client, "describe_target_groups", "TargetGroups"
+        )
         for tg in target_groups:
-            tg_arn = tg["TargetGroupArn"]
-            try:
-                tags_response = elbv2_client.describe_tags(ResourceArns=[tg_arn])
-                tag_descriptions = tags_response.get("TagDescriptions", [])
-                tg["Tags"] = (
-                    tag_descriptions[0].get("Tags", []) if tag_descriptions else []
-                )
-            except ClientError as e:
-                output_console.print(
-                    f"[yellow]Could not get tags for target group {tg_arn}: {e}[/yellow]"
-                )
-                tg["Tags"] = []
+            _attach_tags(elbv2_client, "TargetGroupArn", tg)
+        return target_groups
 
-        # Listeners (paginated, annotated with their load balancer)
-        listeners = []
-        for lb in load_balancers:
-            lb_arn = lb["LoadBalancerArn"]
-            try:
-                paginator = elbv2_client.get_paginator("describe_listeners")
-                for page in paginator.paginate(LoadBalancerArn=lb_arn):
-                    for listener in page["Listeners"]:
-                        listener["LoadBalancerArn"] = lb_arn
-                        listener["LoadBalancerName"] = lb["LoadBalancerName"]
-                        listeners.append(listener)
-            except ClientError as e:
-                output_console.print(
-                    f"[yellow]Could not get listeners for load balancer {lb_arn}: {e}[/yellow]"
-                )
-
-        # Listener Rules (paginated, annotated with listener and load balancer)
-        listener_rules = []
-        for listener in listeners:
-            listener_arn = listener["ListenerArn"]
-            try:
-                paginator = elbv2_client.get_paginator("describe_rules")
-                for page in paginator.paginate(ListenerArn=listener_arn):
-                    for rule in page["Rules"]:
-                        rule["ListenerArn"] = listener_arn
-                        rule["LoadBalancerArn"] = listener["LoadBalancerArn"]
-                        rule["LoadBalancerName"] = listener["LoadBalancerName"]
-                        listener_rules.append(rule)
-            except ClientError as e:
-                output_console.print(
-                    f"[yellow]Could not get rules for listener {listener_arn}: {e}[/yellow]"
-                )
-
-        result["load_balancers"] = load_balancers
-        result["target_groups"] = target_groups
-        result["listeners"] = listeners
-        result["listener_rules"] = listener_rules
-
-    except BotoCoreError as e:
-        logger.error("ELB scan failed in region %s: %s", region, str(e))
-        logger.log_error_context(e, {"region": region, "operation": "elb_scan"})
-
-    # Log completion with resource count
-    total_resources = sum(len(result.get(key, [])) for key in result)
-    logger.info(
-        "ELB scan completed in region %s: %d total resources", region, total_resources
+    result = run_parallel(
+        {
+            "load_balancers": load_balancers_with_tags,
+            "target_groups": target_groups_with_tags,
+        },
+        service="elb",
+        region=region,
+        max_workers=2,
     )
 
-    # Debug-level details about each resource type
-    for resource_type, resources in result.items():
-        if resources:
-            logger.debug(
-                "ELB %s in %s: %d resources", resource_type, region, len(resources)
-            )
+    # Dependent traversal: listeners per load balancer, rules per listener.
+    # A failing parent is skipped with a warning; the rest keep going.
+    listener_groups = map_parallel(
+        partial(_listeners_of, elbv2_client),
+        result["load_balancers"],
+        max_workers=ELB_CHILD_WORKERS,
+    )
+    result["listeners"] = [listener for group in listener_groups for listener in group]
 
-    return result
+    rule_groups = map_parallel(
+        partial(_rules_of, elbv2_client),
+        result["listeners"],
+        max_workers=ELB_CHILD_WORKERS,
+    )
+    result["listener_rules"] = [rule for group in rule_groups for rule in group]
+
+    return finish("elb", region, result)
 
 
 def process_elb_output(
