@@ -20,6 +20,7 @@ from services.autoscaling_service import process_autoscaling_output, scan_autosc
 from services.ec2_service import process_ec2_output, scan_ec2
 from services.ecs_service import process_ecs_output, scan_ecs
 from services.elb_service import process_elb_output, scan_elb
+from services.rds_service import process_rds_output, scan_rds
 from services.s3_service import process_s3_output, scan_s3
 from services.vpc_service import process_vpc_output, scan_vpc
 
@@ -46,6 +47,7 @@ SERVICES: dict[str, ServiceRegistration] = {
     "ecs": ServiceRegistration(scan_ecs, process_ecs_output),
     "elb": ServiceRegistration(scan_elb, process_elb_output),
     "vpc": ServiceRegistration(scan_vpc, process_vpc_output),
+    "rds": ServiceRegistration(scan_rds, process_rds_output),
     "autoscaling": ServiceRegistration(
         scan_autoscaling, process_autoscaling_output, accepts_tags=True
     ),
