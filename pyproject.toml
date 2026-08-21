@@ -44,9 +44,8 @@ Homepage = "https://github.com/ishuar/aws-resource-inventory"
 Repository = "https://github.com/ishuar/aws-resource-inventory"
 
 [project.scripts]
-aws-scanner = "cli:app"
+aws-inventory = "cli:app"
 aws-resource-inventory = "cli:app"
-aws-scan = "cli:app"
 
 [tool.poetry]
 packages = [

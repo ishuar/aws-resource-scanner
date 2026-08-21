@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-AWS Multi-Service Scanner CLI
+AWS Resource Inventory CLI
 ----------------------------
 
 Command-line interface for scanning AWS resources across multiple services and regions.
@@ -78,8 +78,8 @@ if str(script_dir) not in sys.path:
 
 # Create the CLI application
 app = typer.Typer(
-    name="aws-scanner",
-    help="AWS Multi-Service Scanner\n\nScan multiple AWS services across regions with optional tag filtering\n\nUse the 'scan' command to start scanning AWS resources.",
+    name="aws-inventory",
+    help="AWS Resource Inventory\n\nScan multiple AWS services across regions with optional tag filtering\n\nUse the 'scan' command to start scanning AWS resources.",
     add_completion=True,
 )
 console = Console()
@@ -101,7 +101,7 @@ def main(
     ),
 ) -> None:
     """
-    AWS Multi-Service Scanner
+    AWS Resource Inventory
     A comprehensive tool for scanning AWS resources across multiple services and regions
     with advanced filtering, caching, and output capabilities.
     Features:
@@ -188,7 +188,7 @@ def scan_command(
     ),
 ) -> None:
     """
-    AWS Multi-Service Scanner
+    AWS Resource Inventory
 
     Scan multiple AWS services across regions with optional tag filtering. Use the 'scan' command to start scanning AWS resources.
     """

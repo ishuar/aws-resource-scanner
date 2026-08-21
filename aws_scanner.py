@@ -137,7 +137,7 @@ def display_banner(debug: bool) -> str:
     """Display fancy ASCII banner with AWS profile information."""
     # Create fancy ASCII banner
     try:
-        banner = pyfiglet.figlet_format("AWS Scanner", font="slant")
+        banner = pyfiglet.figlet_format("AWS Inventory", font="slant")
         bold_cyan_banner = f"[bold cyan]{banner}[/bold cyan]"
         bold_green_banner = f"[bold green]{banner}[/bold green]"
         output = bold_cyan_banner if not debug else bold_green_banner
