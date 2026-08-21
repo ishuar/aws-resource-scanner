@@ -361,7 +361,7 @@ def check_and_display_cache_status(...) -> bool:
 
 #### 3.1 Unified Logging System (`logging.py`)
 
-**Purpose**: Comprehensive unified logging system for AWS resource scanner with advanced features
+**Purpose**: Comprehensive unified logging system for AWS Resource Inventory with advanced features
 
 ##### Key Components:
 
@@ -1660,8 +1660,8 @@ def process_{service}_output(
 
 ```bash
 # Clone repository
-git clone https://github.com/ishuar/aws-resource-scanner.git
-cd aws-resource-scanner
+git clone https://github.com/ishuar/aws-resource-inventory.git
+cd aws-resource-inventory
 
 # Install with Poetry
 poetry install

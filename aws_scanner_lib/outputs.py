@@ -158,7 +158,7 @@ def generate_markdown_summary(
 
     # Add scan metadata
     md_content.append("\n## Scan Metadata")
-    md_content.append("- **Tool**: AWS Service Scanner")
+    md_content.append("- **Tool**: AWS Resource Inventory")
     md_content.append("- **Version**: Modular Version with Advanced Optimizations")
 
     return "\n".join(md_content)

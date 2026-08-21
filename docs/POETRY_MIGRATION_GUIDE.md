@@ -54,7 +54,7 @@ rm -rf .venv
 find . -name "__pycache__" -type d -exec rm -rf {} +
 
 # Remove .egg-info directory
-rm -rf aws_service_scanner.egg-info
+rm -rf aws_resource_inventory.egg-info
 ```
 
 ## Step 6: Initialize Poetry Project

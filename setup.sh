@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# AWS Resource Scanner - Automated Setup Script
+# AWS Resource Inventory - Automated Setup Script
 # ==============================================
 #
-# This script automates the complete setup of the AWS Resource Scanner tool
+# This script automates the complete setup of the AWS Resource Inventory tool
 # for users with no prior experience. It handles all dependencies and
 # configuration automatically.
 #
@@ -69,7 +69,7 @@ NC='\033[0m' # No Color
 
 # Script configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_NAME="AWS Resource Scanner"
+PROJECT_NAME="AWS Resource Inventory"
 REQUIRED_PYTHON_VERSION="3.10"
 
 #######################################
@@ -175,7 +175,7 @@ check_directory() {
     print_step "0" "Verifying project directory"
 
     if [[ ! -f "pyproject.toml" ]] || [[ ! -f "aws_scanner.py" ]]; then
-        print_error "This script must be run from the AWS Resource Scanner project root directory."
+        print_error "This script must be run from the AWS Resource Inventory project root directory."
         print_info "Expected files: pyproject.toml, aws_scanner.py"
         print_info "Current directory: $(pwd)"
         print_info "Please navigate to the project root and try again."
@@ -505,7 +505,7 @@ display_usage() {
     print_section "🎉 Setup Complete! Usage Instructions"
 
     echo
-    print_message "GREEN" "The AWS Resource Scanner has been successfully installed!"
+    print_message "GREEN" "The AWS Resource Inventory has been successfully installed!"
     echo
 
     print_message "CYAN" "🚀 Quick Start:"
@@ -547,7 +547,7 @@ display_usage() {
     print_message "PURPLE" "💡 Tips:"
     echo "  • Use '--dry-run' to see what would be scanned without actually running"
     echo "  • Use '--no-cache' to force fresh data retrieval"
-    echo "  • Check logs in /tmp/aws_resource_scanner/ for debugging"
+    echo "  • Check logs in /tmp/aws_resource_inventory/ for debugging"
     echo
 }
 
@@ -576,10 +576,10 @@ main() {
     clear
     print_message "PURPLE" "╔══════════════════════════════════════════════════════════════╗"
     print_message "PURPLE" "║                                                              ║"
-    print_message "PURPLE" "║               AWS Resource Scanner Setup                     ║"
+    print_message "PURPLE" "║               AWS Resource Inventory Setup                     ║"
     print_message "PURPLE" "║                                                              ║"
     print_message "PURPLE" "║  This script will install all required dependencies and      ║"
-    print_message "PURPLE" "║  set up the AWS Resource Scanner tool for immediate use.     ║"
+    print_message "PURPLE" "║  set up the AWS Resource Inventory tool for immediate use.     ║"
     print_message "PURPLE" "║                                                              ║"
     print_message "PURPLE" "╚══════════════════════════════════════════════════════════════╝"
     echo
@@ -608,7 +608,7 @@ main() {
     display_usage
 
     print_section "🎊 Setup Completed Successfully!"
-    print_success "AWS Resource Scanner is ready to use!"
+    print_success "AWS Resource Inventory is ready to use!"
 }
 
 # Run main function if script is executed directly
