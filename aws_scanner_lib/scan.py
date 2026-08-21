@@ -4,10 +4,9 @@ Scan module for AWS Scanner
 Handles scanning operations for AWS services across regions.
 """
 
-import random
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, Dict, List, Optional, Tuple
 
 import boto3
 from botocore.exceptions import (
@@ -113,55 +112,6 @@ def scan_all_services_with_tags(
         return region, {}, time.time() - start_time
 
 
-def retry_with_backoff(func: Any, max_retries: int = 3, base_delay: float = 1) -> Any:
-    """Retry function with exponential backoff for transient errors."""
-    for attempt in range(max_retries):
-        try:
-            return func()
-        except ClientError as e:
-            error_code = e.response.get("Error", {}).get("Code", "Unknown")
-
-            # Don't retry for non-transient errors
-            if error_code in [
-                "AccessDenied",
-                "UnauthorizedOperation",
-                "InvalidUserID.NotFound",
-            ]:
-                raise e
-
-            # Retry for transient errors
-            if error_code in [
-                "Throttling",
-                "ThrottlingException",
-                "RequestLimitExceeded",
-                "ServiceUnavailable",
-            ]:
-                if attempt < max_retries - 1:
-                    delay = base_delay * (2**attempt) + random.uniform(0, 1)
-                    logger.warning(
-                        "Retrying in %.1fs due to %s (attempt %d/%d)",
-                        delay,
-                        error_code,
-                        attempt + 1,
-                        max_retries,
-                    )
-                    time.sleep(delay)
-                    continue
-            raise e
-        except (EndpointConnectionError, ConnectTimeoutError) as e:
-            if attempt < max_retries - 1:
-                delay = base_delay * (2**attempt) + random.uniform(0, 1)
-                logger.warning(
-                    "Retrying connection in %.1fs (attempt %d/%d)",
-                    delay,
-                    attempt + 1,
-                    max_retries,
-                )
-                time.sleep(delay)
-                continue
-            raise e
-
-
 def scan_service(
     session: boto3.Session,
     region: str,
@@ -189,13 +139,15 @@ def scan_service(
         return registration.scan(session, region)
 
     try:
-        result = retry_with_backoff(_do_scan)
+        # Transient-error retries are owned by botocore's adaptive retry
+        # mode on the clients themselves (aws_scanner_lib.clients).
+        result = _do_scan()
 
         # Cache the result
         if use_cache and result:
             cache_result(region, service, result, tag_key, tag_value)
 
-        return cast(Dict[str, Any], result)
+        return result
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "Unknown")
         logger.error(

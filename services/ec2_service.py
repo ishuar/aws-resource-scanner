@@ -12,6 +12,7 @@ from typing import Any, Dict, List
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from aws_scanner_lib.clients import get_scan_client
 from aws_scanner_lib.logging import get_logger, get_output_console
 
 # Service logger
@@ -123,7 +124,7 @@ def scan_ec2(
     )
 
     result = {}
-    ec2_client = session.client("ec2", region_name=region)
+    ec2_client = get_scan_client(session, "ec2", region)
 
     try:
         # Empty filters - get all resources in the region

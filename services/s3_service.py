@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from aws_scanner_lib.clients import get_scan_client
 from aws_scanner_lib.logging import get_logger, get_output_console
 
 # Service logger
@@ -81,7 +82,7 @@ def scan_s3(
         "s3", "describe_buckets", region, parallel_workers=S3_MAX_WORKERS
     )
 
-    s3_client = session.client("s3", region_name=region)
+    s3_client = get_scan_client(session, "s3", region)
     result = {}
     try:
         # S3 buckets with pagination

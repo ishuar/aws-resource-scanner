@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from aws_scanner_lib.clients import get_scan_client
 from aws_scanner_lib.logging import get_logger, get_output_console
 
 # Service logger
@@ -142,8 +143,8 @@ def scan_autoscaling(
         parallel_workers=AUTOSCALING_MAX_WORKERS,
     )
 
-    autoscaling_client = session.client("autoscaling", region_name=region)
-    ec2_client = session.client("ec2", region_name=region)
+    autoscaling_client = get_scan_client(session, "autoscaling", region)
+    ec2_client = get_scan_client(session, "ec2", region)
     result = {}
 
     try:

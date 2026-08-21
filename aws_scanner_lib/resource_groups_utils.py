@@ -14,6 +14,7 @@ from typing import Any, Dict, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from .clients import get_scan_client
 from .logging import get_logger, get_output_console
 
 # Service logger
@@ -52,7 +53,7 @@ def get_all_tagged_resources_across_services(
         logger.debug("Discovering resources in %s via Resource Groups API", region)
 
         # Use Resource Groups Tagging API WITHOUT ResourceTypeFilters to get ALL resources
-        tagging_client = session.client("resourcegroupstaggingapi", region_name=region)
+        tagging_client = get_scan_client(session, "resourcegroupstaggingapi", region)
 
         tag_filters = []
         if tag_key and tag_value:

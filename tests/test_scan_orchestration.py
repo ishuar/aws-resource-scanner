@@ -9,86 +9,18 @@ planned service-registry and spec-driven-scanner refactors.
 """
 
 import threading
-import time
 from typing import Any, List, Tuple
 
-import pytest
-from botocore.exceptions import ClientError, EndpointConnectionError
+from botocore.exceptions import ClientError
 
 from aws_scanner_lib.cache import cache_result
-from aws_scanner_lib.scan import retry_with_backoff, scan_region, scan_service
+from aws_scanner_lib.scan import scan_region, scan_service
 
 REGION = "eu-central-1"
 
 
-@pytest.fixture(autouse=True)
-def _no_real_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Retries must not slow the suite down."""
-    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
-
-
 def client_error(code: str) -> ClientError:
     return ClientError({"Error": {"Code": code, "Message": code}}, "DescribeThings")
-
-
-class TestRetryWithBackoff:
-    def test_returns_the_functions_value_on_success(self) -> None:
-        assert retry_with_backoff(lambda: {"ok": True}) == {"ok": True}
-
-    def test_transient_error_is_retried_until_success(self) -> None:
-        attempts: List[int] = []
-
-        def flaky() -> str:
-            attempts.append(1)
-            if len(attempts) < 3:
-                raise client_error("Throttling")
-            return "recovered"
-
-        assert retry_with_backoff(flaky, max_retries=3) == "recovered"
-        assert len(attempts) == 3
-
-    def test_transient_error_raises_after_max_retries(self) -> None:
-        def always_throttled() -> None:
-            raise client_error("RequestLimitExceeded")
-
-        with pytest.raises(ClientError):
-            retry_with_backoff(always_throttled, max_retries=3)
-
-    def test_access_denied_is_not_retried(self) -> None:
-        attempts: List[int] = []
-
-        def denied() -> None:
-            attempts.append(1)
-            raise client_error("AccessDenied")
-
-        with pytest.raises(ClientError):
-            retry_with_backoff(denied, max_retries=3)
-        assert len(attempts) == 1
-
-    def test_unrecognised_error_codes_are_not_retried(self) -> None:
-        # Characterization: anything outside the transient allowlist raises
-        # on the first attempt.
-        attempts: List[int] = []
-
-        def unknown() -> None:
-            attempts.append(1)
-            raise client_error("SomeNewErrorCode")
-
-        with pytest.raises(ClientError):
-            retry_with_backoff(unknown, max_retries=3)
-        assert len(attempts) == 1
-
-    def test_connection_errors_are_retried(self) -> None:
-        attempts: List[int] = []
-
-        def flaky_network() -> str:
-            attempts.append(1)
-            if len(attempts) < 2:
-                raise EndpointConnectionError(endpoint_url="https://example.test")
-            return "recovered"
-
-        assert retry_with_backoff(flaky_network, max_retries=3) == "recovered"
-        assert len(attempts) == 2
 
 
 class TestScanService:
