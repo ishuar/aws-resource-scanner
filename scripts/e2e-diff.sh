@@ -13,11 +13,14 @@
 #      or export AWS_PROFILE; otherwise the tool uses "default".
 #   2. jq            — brew install jq
 #   3. poetry        — with the project venv installed (poetry install)
-#   4. A clean-ish repo: both refs must exist locally (git fetch first
-#      if comparing against origin/main).
+#
+# The script fetches origin itself, and the defaults compare
+# origin/main~1 vs origin/main — with squash-merges that is exactly
+# "before vs after the PR that just merged", independent of local
+# branch state. Explicit --before/--after refs override the defaults.
 #
 # USAGE
-#   scripts/e2e-diff.sh                          # main@{1} vs main, eu-central-1
+#   scripts/e2e-diff.sh                          # origin/main~1 vs origin/main
 #   scripts/e2e-diff.sh --before <ref> --after <ref>
 #   scripts/e2e-diff.sh --regions eu-central-1,us-east-1
 #   scripts/e2e-diff.sh --profile my-sso-profile
@@ -32,8 +35,8 @@
 
 set -euo pipefail
 
-BEFORE_REF="main@{1}"
-AFTER_REF="main"
+BEFORE_REF="origin/main~1"
+AFTER_REF="origin/main"
 REGIONS="eu-central-1"
 PROFILE="${AWS_PROFILE:-default}"
 TAG_KEY=""
@@ -60,8 +63,12 @@ fail() { echo "ERROR: $*" >&2; exit 2; }
 
 command -v jq >/dev/null || fail "jq is not installed (brew install jq)"
 command -v poetry >/dev/null || fail "poetry is not installed"
+
+echo "==> Fetching origin so remote refs are current"
+git fetch --quiet origin || fail "git fetch origin failed"
+
 git rev-parse --verify --quiet "${BEFORE_REF}^{commit}" >/dev/null \
-  || fail "before-ref '${BEFORE_REF}' is not a known commit (git fetch?)"
+  || fail "before-ref '${BEFORE_REF}' is not a known commit"
 git rev-parse --verify --quiet "${AFTER_REF}^{commit}" >/dev/null \
   || fail "after-ref '${AFTER_REF}' is not a known commit"
 
