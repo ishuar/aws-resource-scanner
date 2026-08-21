@@ -51,7 +51,9 @@ class TestOutputResults:
         self, tmp_path: Path
     ) -> None:
         out = tmp_path / "scan.json"
-        count = output_results(traditional_results(), out, "json", debug=False)
+        count = output_results(
+            traditional_results(), out, "json", debug=False, source="services"
+        )
 
         assert count == 3
         written = json.loads(out.read_text())
@@ -60,7 +62,9 @@ class TestOutputResults:
 
     def test_table_format_still_writes_the_json_file(self, tmp_path: Path) -> None:
         out = tmp_path / "scan.json"
-        count = output_results(traditional_results(), out, "table", debug=False)
+        count = output_results(
+            traditional_results(), out, "table", debug=False, source="services"
+        )
 
         assert count == 3
         assert json.loads(out.read_text())
@@ -69,7 +73,9 @@ class TestOutputResults:
         self, tmp_path: Path
     ) -> None:
         out = tmp_path / "scan.json"
-        count = output_results(traditional_results(), out, "md", debug=False)
+        count = output_results(
+            traditional_results(), out, "md", debug=False, source="services"
+        )
 
         assert count == 3
         md_file = tmp_path / "scan.md"
@@ -78,7 +84,9 @@ class TestOutputResults:
 
     def test_markdown_alias_behaves_like_md(self, tmp_path: Path) -> None:
         out = tmp_path / "scan.json"
-        output_results(traditional_results(), out, "markdown", debug=False)
+        output_results(
+            traditional_results(), out, "markdown", debug=False, source="services"
+        )
         assert (tmp_path / "scan.md").exists()
 
     def test_unknown_format_writes_nothing_but_still_returns_the_count(
@@ -88,26 +96,32 @@ class TestOutputResults:
         # only — no file, no exception, count still returned. (A future
         # change may make this a hard error; that would be an improvement.)
         out = tmp_path / "scan.json"
-        count = output_results(traditional_results(), out, "yaml", debug=False)
+        count = output_results(
+            traditional_results(), out, "yaml", debug=False, source="services"
+        )
 
         assert count == 3
         assert not out.exists()
 
     def test_missing_output_directory_is_created(self, tmp_path: Path) -> None:
         out = tmp_path / "deeply" / "nested" / "scan.json"
-        output_results(traditional_results(), out, "json", debug=False)
+        output_results(
+            traditional_results(), out, "json", debug=False, source="services"
+        )
         assert out.exists()
 
     def test_empty_results_produce_an_empty_file_and_zero(self, tmp_path: Path) -> None:
         out = tmp_path / "scan.json"
-        count = output_results({}, out, "json", debug=False)
+        count = output_results({}, out, "json", debug=False, source="services")
 
         assert count == 0
         assert json.loads(out.read_text()) == []
 
     def test_empty_service_data_is_skipped(self, tmp_path: Path) -> None:
         out = tmp_path / "scan.json"
-        count = output_results({REGION: {"ec2": {}}}, out, "json", debug=False)
+        count = output_results(
+            {REGION: {"ec2": {}}}, out, "json", debug=False, source="services"
+        )
         assert count == 0
 
     def test_tagging_source_routes_to_the_generic_processor(
@@ -157,7 +171,7 @@ class TestOutputResults:
     ) -> None:
         results = {REGION: {"unknownsvc": {"things": [{"SomeKey": "some-value"}]}}}
         out = tmp_path / "scan.json"
-        count = output_results(results, out, "json", debug=False)
+        count = output_results(results, out, "json", debug=False, source="services")
 
         assert count == 1
         record = json.loads(out.read_text())[0]

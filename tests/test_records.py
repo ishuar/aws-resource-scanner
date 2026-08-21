@@ -62,3 +62,9 @@ def test_to_record_with_name_places_it_second_like_the_legacy_dicts() -> None:
 def test_name_defaults_to_absent() -> None:
     assert "resource_name" not in make().to_record()
     assert make().resource_name is None
+
+
+def test_service_is_derived_from_the_resource_type_prefix() -> None:
+    assert make(resource_type="ec2:instance").service == "ec2"
+    # Bare types without a colon (the legacy "vpc" form) are their own service.
+    assert make(resource_type="vpc").service == "vpc"

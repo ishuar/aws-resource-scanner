@@ -91,10 +91,7 @@ def generate_markdown_summary(
 
     # Summary by service (extracted from resource_type)
     md_content.append("\n## Summary by Service")
-    service_counts = Counter(
-        r.resource_type.split(":")[0] if ":" in r.resource_type else r.resource_type
-        for r in flattened_resources
-    )
+    service_counts = Counter(r.service for r in flattened_resources)
     for service, count in sorted(service_counts.items()):
         md_content.append(f"- **{service.upper()}**: {count} resources")
 
@@ -117,11 +114,7 @@ def generate_markdown_summary(
         # Group by service within region (extracted from resource_type)
         region_services: dict[str, list[Resource]] = {}
         for resource in region_resources:
-            service = (
-                resource.resource_type.split(":")[0]
-                if ":" in resource.resource_type
-                else resource.resource_type
-            )
+            service = resource.service
             if service not in region_services:
                 region_services[service] = []
             region_services[service].append(resource)
@@ -198,7 +191,8 @@ def output_results(
     output_file: Path,
     output_format: str,
     debug: bool,
-    source: Literal["services", "tagging"] = "services",
+    *,
+    source: Literal["services", "tagging"],
 ) -> int:
     """Process results using modular output processors and format for output.
 
@@ -275,10 +269,7 @@ def output_results(
         console.print(f"Total resources: {len(flattened_resources)}")
 
         # Count by service (extracted from resource_type)
-        service_counts = Counter(
-            r.resource_type.split(":")[0] if ":" in r.resource_type else r.resource_type
-            for r in flattened_resources
-        )
+        service_counts = Counter(r.service for r in flattened_resources)
         for service, count in service_counts.items():
             console.print(f"  {service}: {count} resources")
 

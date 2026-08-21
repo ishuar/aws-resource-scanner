@@ -27,6 +27,14 @@ class Resource:
     resource_arn: str
     resource_name: str | None = None
 
+    @property
+    def service(self) -> str:
+        """The AWS service prefix of resource_type ("ec2:instance" -> "ec2").
+
+        Bare legacy types without a colon (e.g. "vpc") are their own service.
+        """
+        return self.resource_type.split(":", 1)[0]
+
     def to_record(self) -> dict[str, Any]:
         """Serialize to the legacy record dict (stable key order)."""
         record: dict[str, Any] = {"region": self.region}
