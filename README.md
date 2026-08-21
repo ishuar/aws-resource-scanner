@@ -236,9 +236,6 @@ poetry run aws-scanner scan --no-cache
 # Configure worker threads for performance
 poetry run aws-scanner scan --max-workers 10 --service-workers 6
 
-# Compare with existing results
-poetry run aws-scanner scan --compare --output current-scan.json
-
 # Continuous refresh mode with custom interval
 poetry run aws-scanner scan --refresh --refresh-interval 30 --service ec2
 

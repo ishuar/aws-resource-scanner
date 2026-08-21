@@ -32,7 +32,6 @@ dependencies = [
     "botocore>=1.40.34",
     "typer>=0.17.4",
     "rich>=14.1.0",
-    "deepdiff>=8.6.1",
     "pyfiglet>=1.0.4",
     # Keep these as they're transitive dependencies
     "click>=8.3.0",      # Required by typer
