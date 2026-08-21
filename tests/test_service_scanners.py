@@ -170,15 +170,10 @@ class TestScanElb:
 
         result = scan_elb(aws_session, REGION)
 
-        # Characterization: "rules" is the orphaned duplicate of
-        # "listener_rules" from the double-fetch (elb_service.py:145) —
-        # today it is part of the result vocabulary and inflates counts.
-        # Candidate 3 will remove it deliberately.
         assert set(result) == {
             "load_balancers",
             "target_groups",
             "listeners",
-            "rules",
             "listener_rules",
         }
         assert [lb["LoadBalancerArn"] for lb in result["load_balancers"]] == [lb_arn]
