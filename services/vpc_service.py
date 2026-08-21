@@ -27,100 +27,70 @@ output_console = get_output_console()
 VPC_MAX_WORKERS = 4  # Parallel workers for different resource types
 
 
+def _paginate_describe(
+    ec2_client: Any,
+    operation: str,
+    result_key: str,
+    filters: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Collect every page of an ec2 describe_* operation."""
+    resources: List[Dict[str, Any]] = []
+    try:
+        paginator = ec2_client.get_paginator(operation)
+        page_iterator = (
+            paginator.paginate(Filters=filters) if filters else paginator.paginate()
+        )
+        for page in page_iterator:
+            resources.extend(page[result_key])
+    except (ClientError, BotoCoreError):
+        pass
+    return resources
+
+
 def _scan_vpcs_parallel(
     ec2_client: Any, filters: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
     """Scan VPCs in parallel."""
-    vpcs = []
-    try:
-        response = (
-            ec2_client.describe_vpcs(Filters=filters)
-            if filters
-            else ec2_client.describe_vpcs()
-        )
-        vpcs.extend(response["Vpcs"])
-    except (ClientError, BotoCoreError):
-        pass
-    return vpcs
+    return _paginate_describe(ec2_client, "describe_vpcs", "Vpcs", filters)
 
 
 def _scan_subnets_parallel(
     ec2_client: Any, filters: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
     """Scan subnets in parallel."""
-    subnets = []
-    try:
-        response = (
-            ec2_client.describe_subnets(Filters=filters)
-            if filters
-            else ec2_client.describe_subnets()
-        )
-        subnets.extend(response["Subnets"])
-    except (ClientError, BotoCoreError):
-        pass
-    return subnets
+    return _paginate_describe(ec2_client, "describe_subnets", "Subnets", filters)
 
 
 def _scan_nat_gateways_parallel(
     ec2_client: Any, filters: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
     """Scan NAT gateways in parallel."""
-    nat_gateways = []
-    try:
-        response = (
-            ec2_client.describe_nat_gateways(Filters=filters)
-            if filters
-            else ec2_client.describe_nat_gateways()
-        )
-        nat_gateways.extend(response["NatGateways"])
-    except (ClientError, BotoCoreError):
-        pass
-    return nat_gateways
+    return _paginate_describe(
+        ec2_client, "describe_nat_gateways", "NatGateways", filters
+    )
 
 
 def _scan_internet_gateways_parallel(
     ec2_client: Any, filters: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
     """Scan internet gateways in parallel."""
-    igws = []
-    try:
-        response = (
-            ec2_client.describe_internet_gateways(Filters=filters)
-            if filters
-            else ec2_client.describe_internet_gateways()
-        )
-        igws.extend(response["InternetGateways"])
-    except (ClientError, BotoCoreError):
-        pass
-    return igws
+    return _paginate_describe(
+        ec2_client, "describe_internet_gateways", "InternetGateways", filters
+    )
 
 
 def _scan_route_tables_parallel(
     ec2_client: Any, filters: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
     """Scan route tables in parallel."""
-    route_tables = []
-    try:
-        response = (
-            ec2_client.describe_route_tables(Filters=filters)
-            if filters
-            else ec2_client.describe_route_tables()
-        )
-        route_tables.extend(response["RouteTables"])
-    except (ClientError, BotoCoreError):
-        pass
-    return route_tables
+    return _paginate_describe(
+        ec2_client, "describe_route_tables", "RouteTables", filters
+    )
 
 
 def _scan_dhcp_options_parallel(ec2_client: Any) -> List[Dict[str, Any]]:
     """Scan DHCP options without tag filtering."""
-    dhcp_options = []
-    try:
-        response = ec2_client.describe_dhcp_options()
-        dhcp_options.extend(response["DhcpOptions"])
-    except (ClientError, BotoCoreError):
-        pass
-    return dhcp_options
+    return _paginate_describe(ec2_client, "describe_dhcp_options", "DhcpOptions", [])
 
 
 def scan_vpc(
