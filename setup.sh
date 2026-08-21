@@ -576,10 +576,10 @@ main() {
     clear
     print_message "PURPLE" "╔══════════════════════════════════════════════════════════════╗"
     print_message "PURPLE" "║                                                              ║"
-    print_message "PURPLE" "║               AWS Resource Inventory Setup                     ║"
+    print_message "PURPLE" "║                 AWS Resource Inventory Setup                 ║"
     print_message "PURPLE" "║                                                              ║"
     print_message "PURPLE" "║  This script will install all required dependencies and      ║"
-    print_message "PURPLE" "║  set up the AWS Resource Inventory tool for immediate use.     ║"
+    print_message "PURPLE" "║  set up the AWS Resource Inventory tool for immediate use.   ║"
     print_message "PURPLE" "║                                                              ║"
     print_message "PURPLE" "╚══════════════════════════════════════════════════════════════╝"
     echo
