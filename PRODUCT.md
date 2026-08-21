@@ -48,7 +48,7 @@ Confidence semantics:
 evaluate(inventory, session, region, config) -> list[Finding]
 ```
 
-Providers are registered in a dict, mirroring `services/registry.py`. No plugin framework — a registry dict is the whole abstraction. v1 ships **two** providers, which makes the seam real from day one (one adapter is a hypothetical seam; two is a real one).
+Providers are registered in a dict, mirroring `services/registry.py`. No plugin framework — a registry dict is the whole abstraction. v1 ships **two** providers (one adapter is a hypothetical seam; two is a real one) — with the honest caveat that the tag-drift provider is opt-in: it runs only when `--managed-tag` is given, so a default run exercises just the state-rules provider. Both are still real, tested implementations behind the same seam.
 
 ### Rule — the unit inside the state-rules provider
 
@@ -80,7 +80,7 @@ Deterministic checks over the existing inventory plus two new scanners (**RDS**,
 |---|---|---|---|
 | `ebs-unattached` | `Status == "available"` | certain | snapshot-then-delete |
 | `eip-unassociated` | no `AssociationId` | certain | delete |
-| `elb-no-targets` | LB/target group with zero registered targets | certain | review |
+| `elb-no-targets` | LB/target group with zero registered targets | likely | review |
 | `ec2-long-stopped` | stopped > N days (default 90, configurable) | likely | review |
 | `snapshot-orphaned` | source volume/AMI no longer exists | likely | delete |
 | `ami-unused` | no instance references, older than N days | likely | delete |
@@ -143,6 +143,7 @@ Cost Explorer, Cost Optimization Hub, CloudWatch metrics, CUR, EOL detection, an
 4. **Remediation:** report-only, forever read-only IAM. Findings carry a `suggested_action` string but the tool never mutates.
 5. **Verb name:** `waste`.
 6. **Tag semantics:** no default managed tag; `--managed-tag` is required to enable tag-drift; `--trust-tags` upgrades drift findings and requires `--managed-tag`.
+7. **Confidence honesty (PR #22 review):** `elb-no-targets` downgraded certain → likely — zero targets is a strong signal, not proof (a freshly provisioned LB legitimately has none). `certain` is reserved for states that prove non-use, per §3's own definition.
 
 ## 8. Open questions (decide during implementation)
 
