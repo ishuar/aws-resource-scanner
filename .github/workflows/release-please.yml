@@ -95,9 +95,9 @@ jobs:
   # One-time setup required before the first release:
   #   1. Add a "pending trusted publisher" on
   #      https://pypi.org/manage/account/publishing/ with:
-  #        project:  aws-resource-scanner
+  #        project:  aws-resource-inventory
   #        owner:    ishuar
-  #        repo:     aws-resource-scanner
+  #        repo:     aws-resource-inventory
   #        workflow: release-please.yml
   #        environment: pypi
   #   2. Create a GitHub environment named "pypi"
@@ -109,7 +109,7 @@ jobs:
     if: needs.release-please.outputs.release_created == 'true'
     environment:
       name: pypi
-      url: https://pypi.org/p/aws-resource-scanner
+      url: https://pypi.org/p/aws-resource-inventory
     permissions:
       id-token: write # OIDC trusted publishing
     steps:

@@ -4,9 +4,9 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [project]
-name = "aws-resource-scanner"
+name = "aws-resource-inventory"
 version = "0.0.1"
-description = "AWS Multi-Service Scanner with tag-based filtering and advanced optimizations"
+description = "AWS multi-service resource inventory with tag-based filtering and advanced optimizations"
 authors = [
     {name = "Ishan Sharma"}
 ]
@@ -41,12 +41,12 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ishuar/aws-resource-scanner"
-Repository = "https://github.com/ishuar/aws-resource-scanner"
+Homepage = "https://github.com/ishuar/aws-resource-inventory"
+Repository = "https://github.com/ishuar/aws-resource-inventory"
 
 [project.scripts]
 aws-scanner = "cli:app"
-aws-resource-scanner = "cli:app"
+aws-resource-inventory = "cli:app"
 aws-scan = "cli:app"
 
 [tool.poetry]

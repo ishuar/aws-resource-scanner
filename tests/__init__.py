@@ -1,1 +1,1 @@
-"""Test suite for aws-resource-scanner. Runs entirely without AWS credentials."""
+"""Test suite for aws-resource-inventory. Runs entirely without AWS credentials."""

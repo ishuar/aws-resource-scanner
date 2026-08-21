@@ -1662,8 +1662,8 @@ def process_{service}_output(
 
 ```bash
 # Clone repository
-git clone https://github.com/ishuar/aws-resource-scanner.git
-cd aws-resource-scanner
+git clone https://github.com/ishuar/aws-resource-inventory.git
+cd aws-resource-inventory
 
 # Install with Poetry
 poetry install

@@ -1,9 +1,9 @@
-# AWS Resource Scanner
+# AWS Resource Inventory
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/ishuar/aws-resource-scanner/main.svg)](https://results.pre-commit.ci/latest/github/ishuar/aws-resource-scanner/main)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/ishuar/aws-resource-inventory/main.svg)](https://results.pre-commit.ci/latest/github/ishuar/aws-resource-inventory/main)
 
 A comprehensive AWS multi-service scanner with tag-based filtering, parallel processing, advanced logging capabilities, and optimization features. This tool enables efficient discovery and analysis of AWS resources across multiple regions and services with intelligent caching, rich output formats, and detailed AWS API tracing.
 
@@ -84,8 +84,8 @@ The easiest way to get started is using our automated setup script:
 
 ```bash
 # Clone the repository
-git clone https://github.com/ishuar/aws-resource-scanner.git
-cd aws-resource-scanner
+git clone https://github.com/ishuar/aws-resource-inventory.git
+cd aws-resource-inventory
 
 # Run the automated setup script
 ./setup.sh
@@ -323,7 +323,7 @@ poetry run aws-scanner --verbose --log-file /path/to/logfile.log scan --debug
 ## 📁 **Project Structure**
 
 ```
-aws-resource-scanner/
+aws-resource-inventory/
 ├── aws_scanner.py               # Core AWS scanning orchestrator
 ├── cli.py                       # Command-line interface with global options
 ├── setup.sh                     # Automated setup script

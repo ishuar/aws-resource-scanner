@@ -1,5 +1,5 @@
 """
-Shared fixtures for the aws-resource-scanner test suite.
+Shared fixtures for the aws-resource-inventory test suite.
 
 Every test here runs without real AWS credentials:
 - fake credential env vars are forced for the whole session
