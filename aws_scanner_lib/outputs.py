@@ -8,7 +8,7 @@ import json
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from rich.console import Console
 from rich.table import Table
@@ -21,7 +21,7 @@ TABLE_MINIMUM_WIDTH = 86
 
 
 def create_aws_resources_table(
-    flattened_resources: List[Dict[str, Any]], debug: bool
+    flattened_resources: list[dict[str, Any]], debug: bool
 ) -> Table:
     """
     Create a standardized AWS resources table with consistent formatting.
@@ -69,7 +69,7 @@ def ensure_output_directory(output_file: Path) -> None:
 
 
 def generate_markdown_summary(
-    flattened_resources: List[Dict[str, Any]], results: Dict[str, Any]
+    flattened_resources: list[dict[str, Any]], results: dict[str, Any]
 ) -> str:
     """Generate a markdown summary report from scan results."""
     md_content = []
@@ -77,7 +77,7 @@ def generate_markdown_summary(
     # Header
     md_content.append("# AWS Resources Scan Report")
     md_content.append(
-        f"\n**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        f"\n**Generated:** {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S')}"
     )
     md_content.append(f"**Total Resources:** {len(flattened_resources)}")
 
@@ -117,7 +117,7 @@ def generate_markdown_summary(
         md_content.append(f"\n### {region}")
 
         # Group by service within region (extracted from resource_type)
-        region_services: Dict[str, List[Dict[str, Any]]] = {}
+        region_services: dict[str, list[dict[str, Any]]] = {}
         for resource in region_resources:
             service = (
                 resource["resource_type"].split(":")[0]
@@ -165,9 +165,9 @@ def generate_markdown_summary(
 
 
 def process_generic_service_output(
-    service_data: Dict[str, Any],
+    service_data: dict[str, Any],
     region: str,
-    flattened_resources: List[Dict[str, Any]],
+    flattened_resources: list[dict[str, Any]],
 ) -> None:
     """
     Generic processor for cross-service resources discovered via Resource Groups API.
@@ -196,7 +196,7 @@ def process_generic_service_output(
                     flattened_resources.append(flattened_resource)
 
 
-def _is_resource_groups_api_data(service_data: Dict[str, Any]) -> bool:
+def _is_resource_groups_api_data(service_data: dict[str, Any]) -> bool:
     """
     Detect if service_data comes from Resource Groups API vs traditional service APIs.
 
@@ -227,7 +227,7 @@ def _is_resource_groups_api_data(service_data: Dict[str, Any]) -> bool:
 
 
 def output_results(
-    results: Dict[str, Any],
+    results: dict[str, Any],
     output_file: Path,
     output_format: str,
     debug: bool,
@@ -239,7 +239,7 @@ def output_results(
     """
 
     # Flatten results into a list of resources with the required columns
-    flattened_resources: List[Dict[str, Any]] = []
+    flattened_resources: list[dict[str, Any]] = []
 
     for region, services in results.items():
         for service_name, service_data in services.items():

@@ -10,7 +10,7 @@ Prioritizes Resource Groups Tagging API for efficient server-side filtering when
 """
 
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List
+from typing import Any
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -32,10 +32,10 @@ def _paginate_describe(
     ec2_client: Any,
     operation: str,
     result_key: str,
-    filters: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    filters: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """Collect every page of an ec2 describe_* operation."""
-    resources: List[Dict[str, Any]] = []
+    resources: list[dict[str, Any]] = []
     try:
         paginator = ec2_client.get_paginator(operation)
         page_iterator = (
@@ -49,22 +49,22 @@ def _paginate_describe(
 
 
 def _scan_vpcs_parallel(
-    ec2_client: Any, filters: List[Dict[str, Any]]
-) -> List[Dict[str, Any]]:
+    ec2_client: Any, filters: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Scan VPCs in parallel."""
     return _paginate_describe(ec2_client, "describe_vpcs", "Vpcs", filters)
 
 
 def _scan_subnets_parallel(
-    ec2_client: Any, filters: List[Dict[str, Any]]
-) -> List[Dict[str, Any]]:
+    ec2_client: Any, filters: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Scan subnets in parallel."""
     return _paginate_describe(ec2_client, "describe_subnets", "Subnets", filters)
 
 
 def _scan_nat_gateways_parallel(
-    ec2_client: Any, filters: List[Dict[str, Any]]
-) -> List[Dict[str, Any]]:
+    ec2_client: Any, filters: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Scan NAT gateways in parallel."""
     return _paginate_describe(
         ec2_client, "describe_nat_gateways", "NatGateways", filters
@@ -72,8 +72,8 @@ def _scan_nat_gateways_parallel(
 
 
 def _scan_internet_gateways_parallel(
-    ec2_client: Any, filters: List[Dict[str, Any]]
-) -> List[Dict[str, Any]]:
+    ec2_client: Any, filters: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Scan internet gateways in parallel."""
     return _paginate_describe(
         ec2_client, "describe_internet_gateways", "InternetGateways", filters
@@ -81,15 +81,15 @@ def _scan_internet_gateways_parallel(
 
 
 def _scan_route_tables_parallel(
-    ec2_client: Any, filters: List[Dict[str, Any]]
-) -> List[Dict[str, Any]]:
+    ec2_client: Any, filters: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Scan route tables in parallel."""
     return _paginate_describe(
         ec2_client, "describe_route_tables", "RouteTables", filters
     )
 
 
-def _scan_dhcp_options_parallel(ec2_client: Any) -> List[Dict[str, Any]]:
+def _scan_dhcp_options_parallel(ec2_client: Any) -> list[dict[str, Any]]:
     """Scan DHCP options without tag filtering."""
     return _paginate_describe(ec2_client, "describe_dhcp_options", "DhcpOptions", [])
 
@@ -97,7 +97,7 @@ def _scan_dhcp_options_parallel(ec2_client: Any) -> List[Dict[str, Any]]:
 def scan_vpc(
     session: Any,
     region: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Scan all VPC resources using describe APIs without tag filtering.
 
@@ -115,7 +115,7 @@ def scan_vpc(
 
     try:
         # No tag filtering - use traditional approach with API-level filters
-        filters: List[Dict[str, Any]] = []
+        filters: list[dict[str, Any]] = []
 
         # Use ThreadPoolExecutor to parallelize VPC resource scanning
         with ThreadPoolExecutor(max_workers=VPC_MAX_WORKERS) as executor:
@@ -207,7 +207,7 @@ def scan_vpc(
         logger.error("VPC scan failed in region %s: %s", region, str(e))
 
     # Log completion with resource count
-    total_resources = sum(len(result.get(key, [])) for key in result.keys())
+    total_resources = sum(len(result.get(key, [])) for key in result)
     logger.info(
         "VPC scan completed in region %s: %d total resources", region, total_resources
     )
@@ -223,7 +223,7 @@ def scan_vpc(
 
 
 def process_vpc_output(
-    service_data: Dict[str, Any], region: str, flattened_resources: List[Dict[str, Any]]
+    service_data: dict[str, Any], region: str, flattened_resources: list[dict[str, Any]]
 ) -> None:
     """Process VPC scan results for output formatting."""
     # VPCs

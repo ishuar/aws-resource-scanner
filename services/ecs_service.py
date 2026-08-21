@@ -10,7 +10,7 @@ Tag-based filtering is handled centrally by the Resource Groups Tagging API.
 """
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List
+from typing import Any
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -66,7 +66,7 @@ def _process_task_definition_parallel(ecs_client: Any, task_def_arn: str) -> Any
 def scan_ecs(
     session: Any,
     region: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Scan ECS resources in the specified region comprehensively."""
     logger.debug("Starting ECS service scan in region %s", region)
 
@@ -249,7 +249,7 @@ def scan_ecs(
         logger.log_error_context(e, {"region": region, "operation": "ecs_scan"})
 
     # Log completion with resource count
-    total_resources = sum(len(result.get(key, [])) for key in result.keys())
+    total_resources = sum(len(result.get(key, [])) for key in result)
     logger.info(
         "ECS scan completed in region %s: %d total resources", region, total_resources
     )
@@ -265,7 +265,7 @@ def scan_ecs(
 
 
 def process_ecs_output(
-    service_data: Dict[str, Any], region: str, flattened_resources: List[Dict[str, Any]]
+    service_data: dict[str, Any], region: str, flattened_resources: list[dict[str, Any]]
 ) -> None:
     """Process ECS scan results for output formatting."""
     # ECS Clusters

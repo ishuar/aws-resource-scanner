@@ -7,7 +7,7 @@ Handles scanning of ELB resources including load balancers, listeners, rules, an
 
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -24,7 +24,7 @@ output_console = get_output_console()
 def scan_elb(
     session: Any,
     region: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Scan all ELB resources in the specified region without tag filtering."""
     logger.debug("Starting ELB service scan in region %s", region)
 
@@ -62,16 +62,9 @@ def scan_elb(
 
         # Target Groups with pagination
         target_groups = []
-        try:
-            paginator = elbv2_client.get_paginator("describe_target_groups")
-            page_iterator = paginator.paginate()
-
-            for page in page_iterator:
-                target_groups.extend(page["TargetGroups"])
-        except Exception:
-            # Fallback to non-paginated call
-            target_groups_response = elbv2_client.describe_target_groups()
-            target_groups = target_groups_response.get("TargetGroups", [])
+        paginator = elbv2_client.get_paginator("describe_target_groups")
+        for page in paginator.paginate():
+            target_groups.extend(page["TargetGroups"])
 
         # Get all target groups with their tags (no filtering)
         for tg in target_groups:
@@ -131,7 +124,7 @@ def scan_elb(
         logger.log_error_context(e, {"region": region, "operation": "elb_scan"})
 
     # Log completion with resource count
-    total_resources = sum(len(result.get(key, [])) for key in result.keys())
+    total_resources = sum(len(result.get(key, [])) for key in result)
     logger.info(
         "ELB scan completed in region %s: %d total resources", region, total_resources
     )
@@ -147,7 +140,7 @@ def scan_elb(
 
 
 def process_elb_output(
-    service_data: Dict[str, Any], region: str, flattened_resources: List[Dict[str, Any]]
+    service_data: dict[str, Any], region: str, flattened_resources: list[dict[str, Any]]
 ) -> None:
     """Process ELB scan results for output formatting."""
     # Load Balancers

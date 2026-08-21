@@ -10,7 +10,7 @@ filtering that dramatically improves performance compared to client-side filteri
 
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -27,9 +27,9 @@ output_console = get_output_console()
 def get_all_tagged_resources_across_services(
     session: Any,
     region: str,
-    tag_key: Optional[str] = None,
-    tag_value: Optional[str] = None,
-) -> Dict[str, Any]:
+    tag_key: str | None = None,
+    tag_value: str | None = None,
+) -> dict[str, Any]:
     """
     Get ALL resources across ALL AWS services using Resource Groups Tagging API.
 
@@ -69,7 +69,7 @@ def get_all_tagged_resources_across_services(
         )
 
         # Organize resources by service
-        service_resources: Dict[str, Any] = {}
+        service_resources: dict[str, Any] = {}
         total_resources = 0
 
         for page in page_iterator:
@@ -138,7 +138,7 @@ def _extract_service_and_type_from_arn(arn: str) -> tuple[str, str]:
     return "", ""
 
 
-def _extract_resource_id_from_arn(arn: str, resource_type: str) -> Optional[str]:
+def _extract_resource_id_from_arn(arn: str, resource_type: str) -> str | None:
     """Extract the resource ID from an AWS ARN based on resource type."""
     try:
         if resource_type in ["s3:bucket"]:
@@ -171,9 +171,7 @@ def _extract_resource_id_from_arn(arn: str, resource_type: str) -> Optional[str]
     return None
 
 
-def should_use_resource_groups_api(
-    tag_key: Optional[str], tag_value: Optional[str]
-) -> bool:
+def should_use_resource_groups_api(tag_key: str | None, tag_value: str | None) -> bool:
     """
     Determine if Resource Groups Tagging API should be used.
 
@@ -185,9 +183,9 @@ def should_use_resource_groups_api(
 def scan_all_tagged_resources(
     session: Any,
     region: str,
-    tag_key: Optional[str] = None,
-    tag_value: Optional[str] = None,
-) -> Dict[str, Any]:
+    tag_key: str | None = None,
+    tag_value: str | None = None,
+) -> dict[str, Any]:
     """
     MAIN FUNCTION: Service-agnostic scanning using Resource Groups Tagging API.
 
@@ -215,7 +213,7 @@ def scan_all_tagged_resources(
 
     logger.debug("Starting hybrid scan: Resource Groups API + Auto Scaling")
 
-    output_results: Dict[str, Any] = {}
+    output_results: dict[str, Any] = {}
 
     try:
         # Use ThreadPoolExecutor to run Resource Groups API and Auto Scaling scans in parallel
