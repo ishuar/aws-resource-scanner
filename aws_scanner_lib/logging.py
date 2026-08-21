@@ -1,5 +1,5 @@
 """
-AWS Resource Scanner Logging Module
+AWS Resource Inventory Logging Module
 ----------------------------------
 
 Unified logging system for AWS resource scanner with all features:
@@ -171,7 +171,7 @@ class AWSLogger:
             # Log session start
             self.logger.debug("=" * 80)
             self.logger.debug(
-                "AWS Resource Scanner Debug Session Started (Simplified Logger)"
+                "AWS Resource Inventory Debug Session Started (Simplified Logger)"
             )
             self.logger.debug("=" * 80)
 

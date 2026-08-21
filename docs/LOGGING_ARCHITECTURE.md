@@ -1,4 +1,4 @@
-# AWS Resource Scanner - Logging Architecture Documentation
+# AWS Resource Inventory - Logging Architecture Documentation
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -14,7 +14,7 @@
 
 ## Overview
 
-The AWS Resource Scanner implements a sophisticated, unified logging system designed to provide comprehensive visibility into AWS API interactions, application flow, and debugging information. The system supports multiple logging modes from basic application logging to detailed AWS API call tracing.
+The AWS Resource Inventory implements a sophisticated, unified logging system designed to provide comprehensive visibility into AWS API interactions, application flow, and debugging information. The system supports multiple logging modes from basic application logging to detailed AWS API call tracing.
 
 ### Key Features
 - **Unified Interface**: Single logging system for all components
