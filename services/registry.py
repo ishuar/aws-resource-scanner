@@ -19,6 +19,7 @@ from aws_scanner_lib.records import Resource
 from services.autoscaling_service import process_autoscaling_output, scan_autoscaling
 from services.ec2_service import process_ec2_output, scan_ec2
 from services.ecs_service import process_ecs_output, scan_ecs
+from services.efs_service import process_efs_output, scan_efs
 from services.elb_service import process_elb_output, scan_elb
 from services.rds_service import process_rds_output, scan_rds
 from services.s3_service import process_s3_output, scan_s3
@@ -45,6 +46,7 @@ SERVICES: dict[str, ServiceRegistration] = {
     "ec2": ServiceRegistration(scan_ec2, process_ec2_output),
     "s3": ServiceRegistration(scan_s3, process_s3_output),
     "ecs": ServiceRegistration(scan_ecs, process_ecs_output),
+    "efs": ServiceRegistration(scan_efs, process_efs_output),
     "elb": ServiceRegistration(scan_elb, process_elb_output),
     "vpc": ServiceRegistration(scan_vpc, process_vpc_output),
     "rds": ServiceRegistration(scan_rds, process_rds_output),
