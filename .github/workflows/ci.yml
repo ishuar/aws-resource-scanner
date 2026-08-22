@@ -65,6 +65,21 @@ jobs:
       - name: Check distribution metadata
         run: pipx run twine check --strict dist/*
 
+      # Asserts the built artifact, not just the declaration that
+      # tests/test_packaging.py pins (ADR-0004).
+      - name: Assert the wheel claims one top-level name
+        run: |
+          python - <<'PY'
+          import glob, zipfile
+          wheel = glob.glob("dist/*.whl")[0]
+          tops = {
+              name.split("/")[0] for name in zipfile.ZipFile(wheel).namelist()
+          }
+          tops = {name for name in tops if not name.endswith(".dist-info")}
+          assert tops == {"aws_resource_inventory"}, f"unexpected top-level names: {sorted(tops)}"
+          print("wheel top-level:", sorted(tops))
+          PY
+
       # twine check only validates metadata — it passed for 0.1.0, whose
       # wheel was missing cli.py entirely, so the installed console script
       # died on ModuleNotFoundError. Installing the wheel into a clean venv

@@ -336,42 +336,44 @@ execution traces, timing, and caller context; `--verbose` together with
 
 ```
 aws-resource-inventory/
-├── aws_scanner.py               # Scan orchestration across regions
-├── cli.py                       # Command-line interface (typer)
-├── setup.sh                     # Automated setup script
-├── run_quick_tests.sh           # Smoke-test script
-├── pyproject.toml               # Project configuration and dependencies
+├── aws_resource_inventory/          # The installed package (one top-level name)
+│   ├── cli.py                       # Command-line interface (typer)
+│   ├── orchestrator.py              # Scan orchestration across regions
+│   │
+│   ├── lib/                         # Shared engine and infrastructure
+│   │   ├── engine.py                # Pagination, concurrency, error policy
+│   │   ├── records.py               # Resource — the typed record every output consumes
+│   │   ├── clients.py               # The only boto3 client factory (pooling, adaptive retries)
+│   │   ├── scan.py                  # Region/service scan orchestration + caching hooks
+│   │   ├── outputs.py               # Table / JSON / Markdown output processing
+│   │   ├── resource_groups_utils.py # Resource Groups Tagging API path (--all-services, tags)
+│   │   ├── cache.py                 # Result caching with TTL
+│   │   └── logging.py               # Unified logging with AWS API tracing
+│   │
+│   └── services/                    # One scanner module per AWS service
+│       ├── registry.py              # Single source of truth: service → scanner + output processor
+│       ├── ec2_service.py           # Instances, volumes, security groups, AMIs, snapshots
+│       ├── s3_service.py            # Buckets (region-filtered, tag-enriched)
+│       ├── ecs_service.py           # Clusters, services, task definitions, capacity providers
+│       ├── efs_service.py           # File systems
+│       ├── elb_service.py           # Load balancers, target groups, listeners, rules
+│       ├── rds_service.py           # DB instances, clusters, snapshots (incl. Aurora)
+│       ├── vpc_service.py           # VPC networking components
+│       └── autoscaling_service.py   # ASGs, launch configurations, launch templates
 │
-├── services/                    # One scanner module per AWS service
-│   ├── registry.py              # Single source of truth: service → scanner + output processor
-│   ├── ec2_service.py           # Instances, volumes, security groups, AMIs, snapshots
-│   ├── s3_service.py            # Buckets (region-filtered, tag-enriched)
-│   ├── ecs_service.py           # Clusters, services, task definitions, capacity providers
-│   ├── efs_service.py           # File systems
-│   ├── elb_service.py           # Load balancers, target groups, listeners, rules
-│   ├── rds_service.py           # DB instances, clusters, snapshots (incl. Aurora)
-│   ├── vpc_service.py           # VPC networking components
-│   └── autoscaling_service.py   # ASGs, launch configurations, launch templates
-│
-├── aws_scanner_lib/             # Core library modules
-│   ├── engine.py                # Shared scanning engine: pagination, concurrency, error policy
-│   ├── records.py               # Resource — the typed record every output consumes
-│   ├── clients.py               # The only boto3 client factory (pooling, adaptive retries)
-│   ├── scan.py                  # Region/service scan orchestration + caching hooks
-│   ├── outputs.py               # Table / JSON / Markdown output processing
-│   ├── resource_groups_utils.py # Resource Groups Tagging API path (--all-services, tags)
-│   ├── cache.py                 # Result caching with TTL
-│   └── logging.py               # Unified logging with AWS API tracing
+├── pyproject.toml                   # Project configuration and dependencies
+├── setup.sh                         # Automated setup script
+├── run_quick_tests.sh               # Smoke-test script
 │
 ├── scripts/
-│   └── e2e-diff.sh              # Before/after functional comparison against real AWS
+│   └── e2e-diff.sh                  # Before/after functional comparison against real AWS
 │
-├── docs/                        # Documentation
-│   ├── adr/                     # Architecture decision records
-│   ├── Architecture.md          # System architecture and design patterns
-│   └── LOGGING_ARCHITECTURE.md  # Logging system documentation
+├── docs/                            # Documentation
+│   ├── adr/                         # Architecture decision records
+│   ├── Architecture.md              # System architecture and design patterns
+│   └── LOGGING_ARCHITECTURE.md      # Logging system documentation
 │
-└── tests/                       # Test suite — runs with ZERO AWS credentials (moto)
+└── tests/                           # Test suite — runs with ZERO AWS credentials (moto)
 ```
 
 ## 🧪 Testing

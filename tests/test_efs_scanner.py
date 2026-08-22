@@ -9,8 +9,8 @@ flattened Resource vocabulary.
 
 from typing import Any
 
-from aws_scanner_lib.records import Resource
-from services.efs_service import process_efs_output, scan_efs
+from aws_resource_inventory.lib.records import Resource
+from aws_resource_inventory.services.efs_service import process_efs_output, scan_efs
 
 REGION = "eu-central-1"
 

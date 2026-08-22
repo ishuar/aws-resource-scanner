@@ -32,7 +32,7 @@ def _fake_aws_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture(autouse=True)
 def isolated_cache(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """Point the scan-result cache at a per-test directory (never /tmp)."""
-    import aws_scanner_lib.cache as cache_module
+    import aws_resource_inventory.lib.cache as cache_module
 
     cache_dir = tmp_path / "aws_scanner_cache"
     monkeypatch.setattr(cache_module, "CACHE_DIR", cache_dir)

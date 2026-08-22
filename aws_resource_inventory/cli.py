@@ -29,8 +29,22 @@ from rich.progress import (
 )
 from rich.table import Table
 
+# Import logging configuration
+from aws_resource_inventory.lib.logging import (
+    DEFAULT_DEBUG_LOG_DIR,
+    configure_logging,
+    create_debug_log_file,
+    get_output_console,
+)
+
+# Import core scanning functionality
+from aws_resource_inventory.lib.outputs import (
+    TABLE_MINIMUM_WIDTH,
+    output_results,
+)
+
 # Import core business logic functions
-from aws_scanner import (
+from aws_resource_inventory.orchestrator import (
     check_and_display_cache_status,
     display_banner,
     display_region_summaries,
@@ -39,22 +53,8 @@ from aws_scanner import (
     validate_aws_credentials,
 )
 
-# Import logging configuration
-from aws_scanner_lib.logging import (
-    DEFAULT_DEBUG_LOG_DIR,
-    configure_logging,
-    create_debug_log_file,
-    get_output_console,
-)
-
-# Import core scanning functionality
-from aws_scanner_lib.outputs import (
-    TABLE_MINIMUM_WIDTH,
-    output_results,
-)
-
 # Single source of truth for scannable services
-from services.registry import SUPPORTED_SERVICES
+from aws_resource_inventory.services.registry import SUPPORTED_SERVICES
 
 # Global AWS profile (module-level constant)
 aws_profile = os.environ.get("AWS_PROFILE", "default")
@@ -632,7 +632,7 @@ def _display_configuration_panel(
         config_table.add_row("Services", f"{', '.join(services)}")
 
     # Show the parallelism the scan will actually use: pools are bounded by
-    # the real work (aws_scanner.py region pool, scan.py service pool), and
+    # the real work (orchestrator.py region pool, scan.py service pool), and
     # the Resource Groups API path fans out per region only.
     region_workers = min(len(region_list), max_workers)
     regions_label = f"{region_workers} region{'s' if region_workers != 1 else ''}"
@@ -898,7 +898,7 @@ def _check_cache_availability(
     all_services: bool,
 ) -> bool:
     """Check if cached results are available for the given parameters."""
-    from aws_scanner_lib.cache import get_cached_result
+    from aws_resource_inventory.lib.cache import get_cached_result
 
     for region in region_list:
         if all_services or (tag_key or tag_value):

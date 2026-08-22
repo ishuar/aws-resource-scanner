@@ -13,15 +13,17 @@ from typing import Any
 
 import pytest
 
-from aws_scanner_lib.outputs import process_generic_service_output
-from aws_scanner_lib.records import Resource
-from services.autoscaling_service import process_autoscaling_output
-from services.ec2_service import process_ec2_output
-from services.ecs_service import process_ecs_output
-from services.elb_service import process_elb_output
-from services.rds_service import process_rds_output
-from services.s3_service import process_s3_output
-from services.vpc_service import process_vpc_output
+from aws_resource_inventory.lib.outputs import process_generic_service_output
+from aws_resource_inventory.lib.records import Resource
+from aws_resource_inventory.services.autoscaling_service import (
+    process_autoscaling_output,
+)
+from aws_resource_inventory.services.ec2_service import process_ec2_output
+from aws_resource_inventory.services.ecs_service import process_ecs_output
+from aws_resource_inventory.services.elb_service import process_elb_output
+from aws_resource_inventory.services.rds_service import process_rds_output
+from aws_resource_inventory.services.s3_service import process_s3_output
+from aws_resource_inventory.services.vpc_service import process_vpc_output
 
 REGION = "eu-central-1"
 

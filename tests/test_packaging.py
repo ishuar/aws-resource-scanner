@@ -54,6 +54,19 @@ def test_every_console_script_module_is_packaged() -> None:
     )
 
 
+def test_wheel_claims_exactly_one_top_level_name() -> None:
+    """ADR-0004: the wheel installs one name into site-packages.
+
+    Generic top-level names like `cli` or `services` can shadow a user's
+    own modules when pip-installed into a shared virtualenv, so adding a
+    second entry here has to be a deliberate, reviewed act.
+    """
+    assert _packaged_names() == {"aws_resource_inventory"}, (
+        f"the wheel would claim {sorted(_packaged_names())} in site-packages; "
+        "everything belongs inside aws_resource_inventory/ (docs/adr/0004)."
+    )
+
+
 def test_packaged_names_exist_on_disk() -> None:
     """A stale entry in `packages` silently drops from the wheel."""
     root = PYPROJECT.parent

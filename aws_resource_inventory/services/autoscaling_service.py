@@ -10,15 +10,15 @@ API does not cover ASGs, so this scanner filters tags itself.
 
 from typing import Any
 
-from aws_scanner_lib.clients import get_scan_client
-from aws_scanner_lib.engine import (
+from aws_resource_inventory.lib.clients import get_scan_client
+from aws_resource_inventory.lib.engine import (
     ScanResult,
     collect_pages,
     finish,
     matches_tags,
     run_parallel,
 )
-from aws_scanner_lib.records import Resource
+from aws_resource_inventory.lib.records import Resource
 
 
 def scan_autoscaling(

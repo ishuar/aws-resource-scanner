@@ -16,7 +16,7 @@ from botocore.exceptions import (
     NoCredentialsError,
 )
 
-from services.registry import SERVICES, SUPPORTED_SERVICES
+from aws_resource_inventory.services.registry import SERVICES, SUPPORTED_SERVICES
 
 # Import cache functions
 from .cache import cache_result, get_cached_result

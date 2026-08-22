@@ -151,4 +151,4 @@ Cost Explorer, Cost Optimization Hub, CloudWatch metrics, CUR, EOL detection, an
 
 - Exact thresholds (`ec2-long-stopped` days, `ami-unused` age) and their flag names.
 - Report layout: group by rule, by service, or by cost (descending cost is the likely default).
-- Where `Finding` and the provider registry live (`aws_scanner_lib/waste/`?) — follow existing package conventions.
+- Where `Finding` and the provider registry live (`aws_resource_inventory/lib/waste/`?) — follow existing package conventions.

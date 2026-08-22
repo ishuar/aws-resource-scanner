@@ -14,9 +14,9 @@ both returned by ``describe_file_systems``.
 
 from typing import Any
 
-from aws_scanner_lib.clients import get_scan_client
-from aws_scanner_lib.engine import Describe, ScanResult, scan_keyed
-from aws_scanner_lib.records import Resource
+from aws_resource_inventory.lib.clients import get_scan_client
+from aws_resource_inventory.lib.engine import Describe, ScanResult, scan_keyed
+from aws_resource_inventory.lib.records import Resource
 
 EFS_SPECS: dict[str, Describe] = {
     "file_systems": Describe("describe_file_systems", "FileSystems"),

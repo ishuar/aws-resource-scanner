@@ -174,9 +174,9 @@ get_os() {
 check_directory() {
     print_step "0" "Verifying project directory"
 
-    if [[ ! -f "pyproject.toml" ]] || [[ ! -f "aws_scanner.py" ]]; then
+    if [[ ! -f "pyproject.toml" ]] || [[ ! -d "aws_resource_inventory" ]]; then
         print_error "This script must be run from the AWS Resource Inventory project root directory."
-        print_info "Expected files: pyproject.toml, aws_scanner.py"
+        print_info "Expected: pyproject.toml, aws_resource_inventory/"
         print_info "Current directory: $(pwd)"
         print_info "Please navigate to the project root and try again."
         exit 1
@@ -539,7 +539,7 @@ display_usage() {
     echo
 
     print_message "CYAN" "📁 Project Files:"
-    echo "  • aws_scanner.py - Main tool script"
+    echo "  • aws_resource_inventory/ - The package (cli.py, orchestrator.py, lib/, services/)"
     echo "  • pyproject.toml - Project configuration"
     echo "  • run_quick_tests.sh - Test suite"
     echo

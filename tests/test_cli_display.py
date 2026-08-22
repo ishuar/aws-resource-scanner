@@ -5,7 +5,7 @@ will actually use, not the --max-workers/--service-workers caps verbatim.
 Real expectations pinned here:
 - worker counts are bounded by the actual work (regions to scan, services
   requested), with the flag caps as upper limits — mirroring the pools in
-  aws_scanner.py (regions) and aws_scanner_lib/scan.py (services);
+  aws_resource_inventory/orchestrator.py (regions) and aws_resource_inventory/lib/scan.py (services);
 - tag mode and --all-services fan out per region only (Resource Groups
   API), so the services multiplier must not appear there;
 - grammar stays correct for single region/service.
@@ -15,7 +15,7 @@ from typing import Any
 
 from rich.console import Console
 
-import cli as cli_module
+import aws_resource_inventory.cli as cli_module
 
 
 def render_config_panel(monkeypatch: Any, **overrides: Any) -> str:

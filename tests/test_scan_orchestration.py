@@ -1,5 +1,5 @@
 """
-Scan orchestration seam: aws_scanner_lib.scan
+Scan orchestration seam: aws_resource_inventory.lib.scan
 
 scan_service and scan_region are the interface the CLI drives. These tests
 exercise dispatch, caching, error swallowing, service filtering, shutdown,
@@ -13,8 +13,8 @@ from typing import Any
 
 from botocore.exceptions import ClientError
 
-from aws_scanner_lib.cache import cache_result
-from aws_scanner_lib.scan import scan_region, scan_service
+from aws_resource_inventory.lib.cache import cache_result
+from aws_resource_inventory.lib.scan import scan_region, scan_service
 
 REGION = "eu-central-1"
 

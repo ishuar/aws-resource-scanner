@@ -14,12 +14,12 @@ from typing import Any
 
 import pytest
 
-from services.autoscaling_service import scan_autoscaling
-from services.ec2_service import scan_ec2
-from services.ecs_service import scan_ecs
-from services.elb_service import scan_elb
-from services.s3_service import scan_s3
-from services.vpc_service import scan_vpc
+from aws_resource_inventory.services.autoscaling_service import scan_autoscaling
+from aws_resource_inventory.services.ec2_service import scan_ec2
+from aws_resource_inventory.services.ecs_service import scan_ecs
+from aws_resource_inventory.services.elb_service import scan_elb
+from aws_resource_inventory.services.s3_service import scan_s3
+from aws_resource_inventory.services.vpc_service import scan_vpc
 
 REGION = "eu-central-1"
 

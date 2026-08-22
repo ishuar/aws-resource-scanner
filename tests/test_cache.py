@@ -1,5 +1,5 @@
 """
-Cache seam: aws_scanner_lib.cache
+Cache seam: aws_resource_inventory.lib.cache
 
 The interface every scan path relies on: get_cache_key / cache_result /
 get_cached_result. Planned refactors must keep keys stable (a changed key
@@ -11,7 +11,11 @@ import time
 from datetime import timedelta
 from pathlib import Path
 
-from aws_scanner_lib.cache import cache_result, get_cache_key, get_cached_result
+from aws_resource_inventory.lib.cache import (
+    cache_result,
+    get_cache_key,
+    get_cached_result,
+)
 
 REGION = "eu-central-1"
 

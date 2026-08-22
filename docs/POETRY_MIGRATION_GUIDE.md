@@ -73,7 +73,7 @@ poetry run python --version
 poetry show
 
 # Test your application
-poetry run python aws_scanner.py --help
+poetry run aws-inventory --help
 ```
 
 ## Step 8: Remove Old Files (Optional)
@@ -112,7 +112,7 @@ Update any scripts or documentation that reference:
 
 ### Running scripts:
 - **Before**: `python aws_scanner.py`
-- **After**: `poetry run python aws_scanner.py` or activate with `poetry shell`
+- **After**: `poetry run aws-inventory` or activate with `poetry shell`
 
 ### Lock file:
 - **Before**: requirements.txt with exact versions

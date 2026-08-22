@@ -61,6 +61,10 @@ cd "$REPO_ROOT"
 # --- prerequisites -----------------------------------------------------------
 fail() { echo "ERROR: $*" >&2; exit 2; }
 
+# Resolved once, from this repo, and reused for both worktree scans.
+VENV_PYTHON="$(poetry env info --executable 2>/dev/null)" \
+  || fail "no poetry environment found — run 'poetry install' first"
+
 command -v jq >/dev/null || fail "jq is not installed (brew install jq)"
 command -v poetry >/dev/null || fail "poetry is not installed"
 
@@ -104,9 +108,15 @@ if [[ -n "${TAG_KEY}" ]]; then SCAN_ARGS+=(--tag-key "${TAG_KEY}"); fi
 if [[ -n "${TAG_VALUE}" ]]; then SCAN_ARGS+=(--tag-value "${TAG_VALUE}"); fi
 
 run_scan() { # $1 = worktree, $2 = output file
-  # python puts the script's directory first on sys.path, so cli.py and its
-  # imports resolve from the worktree while reusing this repo's poetry venv.
-  poetry run python "$1/cli.py" "${SCAN_ARGS[@]}" -o "$2" >"$2.log" 2>&1 \
+  # Must cd into the worktree: `python -m` puts the CWD at sys.path[0],
+  # ahead of PYTHONPATH, so running from the repo root would import this
+  # checkout's package for BOTH scans and always report "no differences" —
+  # silently turning this gate into a no-op.
+  #
+  # Hence the resolved interpreter rather than `poetry run`: each worktree
+  # has its own pyproject.toml, so poetry would target the wrong venv.
+  ( cd "$1" && "$VENV_PYTHON" -m aws_resource_inventory.cli \
+      "${SCAN_ARGS[@]}" -o "$2" ) >"$2.log" 2>&1 \
     || { echo "ERROR: scan failed for $1 — log follows" >&2; tail -30 "$2.log" >&2; exit 2; }
 }
 

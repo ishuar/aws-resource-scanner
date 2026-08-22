@@ -1,5 +1,5 @@
 """
-Engine seam: aws_scanner_lib.engine — the shared scanning library.
+Engine seam: aws_resource_inventory.lib.engine — the shared scanning library.
 
 The engine is the one home for pagination, parallel collection, the
 boto-error guard, and tag matching. Its invariants (tested here, stated
@@ -21,7 +21,7 @@ from typing import Any, ClassVar
 import pytest
 from botocore.exceptions import ClientError, EndpointConnectionError
 
-from aws_scanner_lib.engine import (
+from aws_resource_inventory.lib.engine import (
     Describe,
     collect_pages,
     finish,
