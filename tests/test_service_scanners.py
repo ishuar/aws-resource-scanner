@@ -1,10 +1,13 @@
 """
 Scanner seams: services.*.scan_* against a fake AWS (moto).
 
-Functional tests: create real-shaped resources in moto, run each scanner
+Functional tests for the original six scanners (ec2, s3, vpc, elb, ecs,
+autoscaling): create real-shaped resources in moto, run each scanner
 through its public interface (session, region), and pin the result-key
-vocabulary and the resources found. The spec-driven-scanner refactor
-(candidate 3) must keep every one of these passing.
+vocabulary and the resources found.
+
+Scanners added later get their own per-service test file
+(tests/test_<service>_scanner.py) — that is the norm going forward.
 """
 
 from typing import Any
