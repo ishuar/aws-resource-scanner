@@ -275,12 +275,17 @@ def scan_command(
     # Display banner
     display_banner(debug)
 
+    # Handle regions first: the configuration panel reports the parallelism
+    # the scan will actually use, which depends on the resolved region list.
+    region_list = _handle_regions(regions)
+
     # Create configuration panel
     _display_configuration_panel(
         all_services,
         tag_key,
         tag_value,
         services,
+        region_list,
         max_workers,
         service_workers,
         use_cache,
@@ -290,9 +295,6 @@ def scan_command(
         aws_profile,
         debug,
     )
-
-    # Handle regions
-    region_list = _handle_regions(regions)
 
     # Display regions panel
     _display_regions_panel(region_list, debug)
@@ -590,6 +592,7 @@ def _display_configuration_panel(
     tag_key: str | None,
     tag_value: str | None,
     services: list[str],
+    region_list: list[str],
     max_workers: int,
     service_workers: int,
     use_cache: bool,
@@ -619,9 +622,19 @@ def _display_configuration_panel(
         config_table.add_row("Mode", "Service-Specific")
         config_table.add_row("Services", f"{', '.join(services)}")
 
-    config_table.add_row(
-        "Workers", f"{max_workers} regions × {service_workers} services"
-    )
+    # Show the parallelism the scan will actually use: pools are bounded by
+    # the real work (aws_scanner.py region pool, scan.py service pool), and
+    # the Resource Groups API path fans out per region only.
+    region_workers = min(len(region_list), max_workers)
+    regions_label = f"{region_workers} region{'s' if region_workers != 1 else ''}"
+    if use_resource_groups_api:
+        config_table.add_row("Workers", f"{regions_label} in parallel")
+    else:
+        service_count = min(len(services), service_workers)
+        services_label = f"{service_count} service{'s' if service_count != 1 else ''}"
+        config_table.add_row(
+            "Workers", f"{regions_label} × {services_label} in parallel"
+        )
     config_table.add_row("Caching", "Enabled" if use_cache else "Disabled")
 
     if refresh:
