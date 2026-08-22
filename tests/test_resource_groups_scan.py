@@ -128,6 +128,45 @@ class TestScanAllTaggedResources:
                 assert key.endswith("s"), (service, key)
 
 
+class TestTagScanFlattensEndToEnd:
+    """The gap the 2026-08 regression slipped through: the tag scan's
+    REAL output (produced by moto, not a hand-typed fixture) fed
+    straight into output_results. All identifiers below are synthetic
+    moto data — nothing from any real account."""
+
+    def test_real_hybrid_scan_output_flattens_correctly(
+        self, aws_session: Any, tmp_path: Any
+    ) -> None:
+        import json
+
+        from aws_scanner_lib.outputs import output_results
+
+        create_tagged_fixtures(aws_session)
+
+        # Producer: the actual hybrid scan (RGTA sections + merged ASGs).
+        results = scan_all_tagged_resources(aws_session, REGION, "env", "prod")
+
+        # Consumer: the real report pipeline, no hand-built middle.
+        out = tmp_path / "scan.json"
+        count = output_results(
+            {REGION: results}, out, "json", debug=False, source="tagging"
+        )
+
+        records = {r["resource_type"]: r for r in json.loads(out.read_text())}
+        # RGTA side flattens generically with real ARN/id. (S3 ARNs carry
+        # no type segment, so the derived type embeds the bucket name —
+        # long-standing upstream behaviour this end-to-end test documents.)
+        assert records["s3:tagged-bucket"]["resource_id"] == "tagged-bucket"
+        assert (
+            records["s3:tagged-bucket"]["resource_arn"] == "arn:aws:s3:::tagged-bucket"
+        )
+        # Merged autoscaling side flattens through its service processor —
+        # the exact hand-off the regression mangled.
+        assert records["autoscaling:auto_scaling_group"]["resource_id"] == "prod-asg"
+        assert "launch_templates" not in records  # the mangled form must not exist
+        assert count == len(records)
+
+
 class TestScanAllServicesWithTags:
     def test_returns_region_results_and_duration(self, aws_session: Any) -> None:
         create_tagged_fixtures(aws_session)
