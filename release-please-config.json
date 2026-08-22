@@ -6,7 +6,7 @@
   "include-component-in-tag": false,
   "include-v-in-tag": true,
   "changelog-type": "default",
-  "draft": false,
+  "draft": true,
   "extra-files": [
     "__init__.py"
   ],

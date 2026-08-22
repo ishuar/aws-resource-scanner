@@ -56,18 +56,23 @@ jobs:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true' || inputs.publish_tag != ''
     permissions:
-      contents: read
+      contents: write # attach assets to, and publish, the draft release
       id-token: write # sign build provenance attestations
       attestations: write
     env:
-      # Interpolated into env, never into a run script: publish_tag is
-      # user input and would otherwise be a shell-injection vector.
-      release_ref: ${{ inputs.publish_tag || needs.release-please.outputs.tag_name }}
+      # Reaches shell only as an env var, never interpolated into a run
+      # script: publish_tag is user input and would otherwise be a
+      # shell-injection vector.
+      release_tag: ${{ inputs.publish_tag || needs.release-please.outputs.tag_name }}
     steps:
-      - name: Checkout release tag
+      # The release path builds github.sha — the commit that merged the
+      # release PR, and so the commit release-please released. It
+      # deliberately does not build the tag: whether a draft release creates
+      # its tag up front is undocumented, and this works either way.
+      - name: Checkout the released commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.publish_tag || needs.release-please.outputs.tag_name }}
+          ref: ${{ inputs.publish_tag || github.sha }}
           persist-credentials: false
 
       - name: Set up Python
@@ -81,7 +86,7 @@ jobs:
       - name: Verify tag matches package version
         run: |
           pkg_version="$(poetry version --short)"
-          tag_version="${release_ref#v}"
+          tag_version="${release_tag#v}"
           if [ "$pkg_version" != "$tag_version" ]; then
             echo "::error::pyproject.toml version ($pkg_version) does not match release version ($tag_version)"
             exit 1
@@ -100,14 +105,29 @@ jobs:
 
       # The attested files themselves are what gets published, so the
       # attestation describes the artifacts users actually install.
-      # (Immutable releases seal a published release, so these cannot be
-      # attached to the GitHub release — see docs/adr/0002.)
       - name: Upload distributions for the publish job
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: python-distributions
           path: dist/
           if-no-files-found: error
+
+      # Assets can only be attached while the release is still a draft;
+      # publishing seals it (see docs/adr/0002). Both steps are skipped on
+      # the publish_tag recovery path, whose release is already published
+      # and therefore immutable — attaching there is the 422 that made this
+      # workflow fail in the first place.
+      - name: Attach distributions to the draft release
+        if: needs.release-please.outputs.release_created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$release_tag" dist/* --repo "$GITHUB_REPOSITORY"
+
+      - name: Publish the draft release
+        if: needs.release-please.outputs.release_created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$release_tag" --draft=false --repo "$GITHUB_REPOSITORY"
 
   # Publishes via OIDC trusted publishing (no API tokens).
   # One-time setup required before the first release:
