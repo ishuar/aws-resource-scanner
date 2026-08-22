@@ -180,6 +180,14 @@ def should_use_resource_groups_api(tag_key: str | None, tag_value: str | None) -
     return bool(tag_key or tag_value)
 
 
+# Sections of the hybrid tag-scan results that carry raw service-shaped
+# dicts instead of Resource Groups API records: the Tagging API does not
+# cover Auto Scaling, so scan_all_tagged_resources merges the dedicated
+# scanner's output for it. Flattening must route these sections through
+# their registered service processors.
+SERVICE_SHAPED_SECTIONS = frozenset({"autoscaling"})
+
+
 def scan_all_tagged_resources(
     session: Any,
     region: str,

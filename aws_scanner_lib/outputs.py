@@ -16,6 +16,7 @@ from rich.table import Table
 from services.registry import SERVICES
 
 from .records import Resource
+from .resource_groups_utils import SERVICE_SHAPED_SECTIONS
 
 console = Console()
 # Minimum width for tables to ensure readability
@@ -213,7 +214,7 @@ def output_results(
             if not service_data:  # Skip empty services
                 continue
 
-            if source == "tagging":
+            if source == "tagging" and service_name not in SERVICE_SHAPED_SECTIONS:
                 # Resource Groups API data all shares one shape.
                 process_generic_service_output(
                     service_data, region, flattened_resources

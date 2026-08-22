@@ -180,6 +180,53 @@ class TestOutputResults:
         assert record["resource_arn"] == "N/A"
 
 
+class TestTaggingPathHybridResults:
+    """The tag path is a hybrid: Resource Groups API sections are
+    generic-shaped, but the merged autoscaling section carries raw
+    service-shaped dicts (RGTA does not cover ASGs). Flattening must
+    route that section through the autoscaling processor."""
+
+    def test_autoscaling_section_flattens_with_service_vocabulary(
+        self, tmp_path: Path
+    ) -> None:
+        results = {
+            REGION: {
+                "s3": {
+                    "buckets": [
+                        {
+                            "ResourceARN": "arn:aws:s3:::tagged-bucket",
+                            "ResourceId": "tagged-bucket",
+                            "ResourceType": "s3:bucket",
+                        }
+                    ]
+                },
+                "autoscaling": {
+                    "auto_scaling_groups": [
+                        {
+                            "AutoScalingGroupName": "web-asg",
+                            "AutoScalingGroupARN": "arn:aws:autoscaling:eu-central-1:1:asg/web-asg",
+                        }
+                    ],
+                    "launch_templates": [
+                        {"LaunchTemplateName": "web-lt", "LaunchTemplateId": "lt-1"}
+                    ],
+                },
+            }
+        }
+        out = tmp_path / "scan.json"
+        count = output_results(results, out, "json", debug=False, source="tagging")
+
+        assert count == 3
+        records = {r["resource_type"]: r for r in json.loads(out.read_text())}
+        assert records["s3:bucket"]["resource_id"] == "tagged-bucket"
+        asg = records["autoscaling:auto_scaling_group"]
+        assert asg["resource_id"] == "web-asg"
+        assert asg["resource_arn"] == "arn:aws:autoscaling:eu-central-1:1:asg/web-asg"
+        lt = records["autoscaling:launch_template"]
+        assert lt["resource_id"] == "lt-1"
+        assert lt["resource_name"] == "web-lt"
+
+
 class TestMarkdownSummary:
     def test_report_counts_by_region_service_and_type(self) -> None:
         flattened = [
