@@ -73,7 +73,7 @@ poetry run python --version
 poetry show
 
 # Test your application
-poetry run python aws_resource_inventory/orchestrator.py --help
+poetry run aws-inventory --help
 ```
 
 ## Step 8: Remove Old Files (Optional)
@@ -111,8 +111,8 @@ Update any scripts or documentation that reference:
 - **After**: `poetry install` creates and manages venv automatically
 
 ### Running scripts:
-- **Before**: `python aws_resource_inventory/orchestrator.py`
-- **After**: `poetry run python aws_resource_inventory/orchestrator.py` or activate with `poetry shell`
+- **Before**: `python aws_scanner.py`
+- **After**: `poetry run aws-inventory` or activate with `poetry shell`
 
 ### Lock file:
 - **Before**: requirements.txt with exact versions

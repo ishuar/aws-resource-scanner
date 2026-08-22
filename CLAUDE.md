@@ -50,10 +50,10 @@ reintroduce them.
    couldn't even be imported). Apply the deletion test with evidence
    before investing in a fix.
 9. **Every scanning client comes from
-   `aws_resource_inventory.lib.clients.get_scan_client`** — never `session.client()`
-   directly. It owns pool size, timeouts, adaptive retries, the
-   creation lock (boto3 sessions are not thread-safe for client
-   creation), and the `aws-resource-inventory` user-agent stamp.
+   `aws_resource_inventory.lib.clients.get_scan_client`** — never
+   `session.client()` directly. It owns pool size, timeouts, adaptive
+   retries, the creation lock (boto3 sessions are not thread-safe for
+   client creation), and the `aws-resource-inventory` user-agent stamp.
 10. **Verify merges against real AWS**: `scripts/e2e-diff.sh` (no args)
    fetches origin and compares `origin/main~1` vs `origin/main` scan
    output. Run it after merging anything that touches scan behaviour;
@@ -78,8 +78,9 @@ reintroduce them.
     specifically, rules 16 and 18 apply.
 15. **Two real implementations before an abstraction.** Don't introduce
     a seam, interface, or config knob for a hypothetical second case.
-    Registry dicts over plugin frameworks (`aws_resource_inventory/services/registry.py` is the
-    house pattern). One adapter is a hypothetical seam; two make it real.
+    Registry dicts over plugin frameworks
+    (`aws_resource_inventory/services/registry.py` is the house
+    pattern). One adapter is a hypothetical seam; two make it real.
 16. **Docs ship in the same PR as the change.** A change to behaviour,
     CLI, architecture, or product scope updates every document that
     describes it — README, this file, `PRODUCT.md`, the relevant ADR —
@@ -126,8 +127,8 @@ reintroduce them.
 - stdlib and existing dependencies first. A new runtime dependency is
   its own justified PR (what it buys, why stdlib can't).
 - New modules mirror the existing layout: one service = one
-  `aws_resource_inventory/services/<name>_service.py` + one registry entry; shared logic lives
-  in `aws_resource_inventory/lib`.
+  `aws_resource_inventory/services/<name>_service.py` + one registry
+  entry; shared logic lives in `aws_resource_inventory/lib`.
 - Comments state constraints the code can't show — never narrate what
   the next line does.
 
@@ -168,12 +169,14 @@ reintroduce them.
 - The flattened record contract (region/resource_type/resource_id/
   resource_arn, optional resource_name) is pinned by
   tests/test_resource_shape.py — changing it is a deliberate act.
-- Shipped: the shared scanning engine (`aws_resource_inventory/lib/engine.py`) —
+- Shipped: the shared scanning engine
+  (`aws_resource_inventory/lib/engine.py`) —
   every scanner runs on it; pagination, guarded parallel collection,
   ordered fan-out, and tag matching live there and nowhere else. Fully
   declarative scanners are a `Describe` dict + a 3-line function;
   imperative ones stay plain functions calling the engine helpers.
-- Shipped: the typed record — `aws_resource_inventory/lib/records.py` `Resource`
+- Shipped: the typed record —
+  `aws_resource_inventory/lib/records.py` `Resource`
   (frozen dataclass) is what every processor constructs and every
   output consumes; `to_record()` owns serialization. `output_results`
   takes a required `source` ("services" | "tagging"); the tag scan is a
@@ -189,7 +192,8 @@ reintroduce them.
   (ec2 instances and ecs records show raw ids in reports today); unify
   the six copies of the scan-path predicate (`all_services or tag_key
   or tag_value`) behind one helper; a progress-event seam so rich
-  rendering lives only in aws_resource_inventory/cli.py (plus shrinking the logging module
+  rendering lives only in aws_resource_inventory/cli.py (plus shrinking
+  the logging module
   and adding CLI-level tests); one shared scan interface over the
   per-service and tag-scan paths so retries/cancellation/progress
   apply to both. Check open PRs for live status.
