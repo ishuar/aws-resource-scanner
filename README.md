@@ -11,7 +11,7 @@ A comprehensive AWS multi-service scanner with tag-based filtering, parallel pro
 
 ### 🔍 Core Scanning Capabilities
 - **Tag-Based Scan**: Scan resources by specific tag keys and values across all AWS services.
-- **Multi-Service Support**: Scan EC2, S3, ECS, VPC, Auto Scaling Groups, and ELB resources with and without tags filters across all regions.
+- **Multi-Service Support**: Scan EC2, S3, ECS, EFS, VPC, RDS, Auto Scaling Groups, and ELB resources with and without tag filters across all regions.
 - **Multi-Region Scanning**: Concurrent scanning across multiple AWS regions
 - **Parallel Processing**: Optimized concurrent scanning for faster results
 - **Intelligent Caching**: Built-in caching with TTL for improved performance
@@ -31,7 +31,7 @@ A comprehensive AWS multi-service scanner with tag-based filtering, parallel pro
 - **Rich Error Display**: Enhanced error formatting with caller context
 
 ### ⚙️ Advanced Configuration
-- **Service Selection without Tags**: Choose specific services to scan. Currently supported [`ec2`, `vpc`, `elb`, `autoscaling`, `s3`, `ecs`, `rds`]
+- **Service Selection without Tags**: Choose specific services to scan. Currently supported [`ec2`, `vpc`, `elb`, `autoscaling`, `s3`, `ecs`, `rds`, `efs`]
 - **Region Customization**: Scan specific regions or use default region sets
 - **Worker Configuration**: Configurable parallel workers for optimal performance
 - **Dry Run Mode**: Preview scan operations without execution
@@ -49,12 +49,14 @@ A comprehensive AWS multi-service scanner with tag-based filtering, parallel pro
 | Service          | Description                                                                                                             | Resources Scanned                                                 |
 |------------------|-------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------|
 | **All Services** | With [Resource Groups Tagging API](https://docs.aws.amazon.com/resourcegroupstagging/latest/APIReference/overview.html) | 100+ AWS services when using tags                                 |
-| **EC2**          | Elastic Compute Cloud                                                                                                   | Instances, Security Groups, Key Pairs, Volumes                    |
+| **EC2**          | Elastic Compute Cloud                                                                                                   | Instances, Volumes, Security Groups, AMIs, Snapshots              |
 | **S3**           | Simple Storage Service                                                                                                  | Buckets and their configurations                                  |
 | **ECS**          | Elastic Container Service                                                                                               | Clusters, Services, Task Definitions, Capacity Providers          |
-| **VPC**          | Virtual Private Cloud                                                                                                   | VPCs, Subnets, Route Tables, Internet Gateways, NAT Gateways      |
+| **VPC**          | Virtual Private Cloud                                                                                                   | VPCs, Subnets, Route Tables, IGWs, NAT Gateways, DHCP Options, Peering Connections, Endpoints |
 | **Auto Scaling** | Auto Scaling Groups                                                                                                     | ASGs, Launch Configurations, Launch Templates                     |
-| **ELB**          | Elastic Load Balancing                                                                                                  | Application Load Balancers, Network Load Balancers, Target Groups |
+| **ELB**          | Elastic Load Balancing                                                                                                  | Load Balancers (ALB/NLB), Target Groups, Listeners, Listener Rules |
+| **RDS**          | Relational Database Service                                                                                             | DB Instances, DB Clusters, DB Snapshots, Aurora Cluster Snapshots |
+| **EFS**          | Elastic File System                                                                                                     | File Systems (with size and mount-target details)                 |
 
 > **📚 Architecture Details**: For detailed information about the scanning architecture and service implementation patterns, see [Architecture Documentation](docs/aws-inventory-book.md).
 
@@ -170,7 +172,7 @@ poetry run aws-inventory --verbose scan --debug --service ec2
 poetry run aws-inventory --log-file /tmp/my-scan.log scan --debug --regions us-east-1
 
 # Combine verbose logging with custom log file
-poetry run aws-inventory --verbose --log-file /tmp/aws-api-trace.log scan --debug --service ec2,s3
+poetry run aws-inventory --verbose --log-file /tmp/aws-api-trace.log scan --debug --service ec2 --service s3
 
 # Debug with dry run (no actual scanning)
 poetry run aws-inventory --verbose scan --debug --dry-run --service vpc
@@ -321,45 +323,67 @@ poetry run aws-inventory --verbose --log-file /path/to/logfile.log scan --debug
 
 ```
 aws-resource-inventory/
-├── aws_scanner.py               # Core AWS scanning orchestrator
-├── cli.py                       # Command-line interface with global options
+├── aws_scanner.py               # Scan orchestration across regions
+├── cli.py                       # Command-line interface (typer)
 ├── setup.sh                     # Automated setup script
-├── run_quick_tests.sh           # Test verification script
+├── run_quick_tests.sh           # Smoke-test script
 ├── pyproject.toml               # Project configuration and dependencies
 │
-├── services/                    # Service-specific scanners
-│   ├── ec2_service.py           # EC2 instances, security groups, volumes
-│   ├── s3_service.py            # S3 buckets and configurations
-│   ├── ecs_service.py           # ECS clusters, services, task definitions
+├── services/                    # One scanner module per AWS service
+│   ├── registry.py              # Single source of truth: service → scanner + output processor
+│   ├── ec2_service.py           # Instances, volumes, security groups, AMIs, snapshots
+│   ├── s3_service.py            # Buckets (region-filtered, tag-enriched)
+│   ├── ecs_service.py           # Clusters, services, task definitions, capacity providers
+│   ├── efs_service.py           # File systems
+│   ├── elb_service.py           # Load balancers, target groups, listeners, rules
+│   ├── rds_service.py           # DB instances, clusters, snapshots (incl. Aurora)
 │   ├── vpc_service.py           # VPC networking components
-│   ├── autoscaling_service.py   # Auto Scaling groups and configurations
-│   └── elb_service.py           # Load balancers and target groups
+│   └── autoscaling_service.py   # ASGs, launch configurations, launch templates
 │
 ├── aws_scanner_lib/             # Core library modules
-│   ├── logging.py               # Unified logging system with AWS API tracing
-│   ├── cache.py                 # Intelligent caching with TTL
-│   ├── outputs.py               # Multi-format output processing
-│   ├── resource_groups_utils.py # Resource Groups API for --all-services
-│   └── scan.py                  # Core scanning orchestration logic
+│   ├── engine.py                # Shared scanning engine: pagination, concurrency, error policy
+│   ├── records.py               # Resource — the typed record every output consumes
+│   ├── clients.py               # The only boto3 client factory (pooling, adaptive retries)
+│   ├── scan.py                  # Region/service scan orchestration + caching hooks
+│   ├── outputs.py               # Table / JSON / Markdown output processing
+│   ├── resource_groups_utils.py # Resource Groups Tagging API path (--all-services, tags)
+│   ├── cache.py                 # Result caching with TTL
+│   └── logging.py               # Unified logging with AWS API tracing
 │
-├── docs/                        # Comprehensive documentation
-│   ├── LOGGING_ARCHITECTURE.md  # Detailed logging system documentation
-│   └── Architecture.md          # System architecture and design patterns
+├── scripts/
+│   └── e2e-diff.sh              # Before/after functional comparison against real AWS
 │
-└── tests/                       # Test suite and verification scripts
+├── docs/                        # Documentation
+│   ├── adr/                     # Architecture decision records
+│   ├── Architecture.md          # System architecture and design patterns
+│   ├── aws-inventory-book.md    # In-depth guide
+│   └── LOGGING_ARCHITECTURE.md  # Logging system documentation
+│
+└── tests/                       # Test suite — runs with ZERO AWS credentials (moto)
 ```
 
 ## 🧪 Testing
 
+The suite needs **no AWS credentials** — moto fakes AWS, and the test
+fixtures force fake credentials so no test can ever touch a real account.
+
 ```bash
-# Run all tests
+# Run the full suite (coverage is reported automatically)
+poetry run pytest
+
+# Run one test file
+poetry run pytest tests/test_engine.py
+
+# Quick smoke checks (help, dry-run, formats)
 ./run_quick_tests.sh
+```
 
-# Run specific test files
-poetry run python -m pytest tests/test_aws_scanner.py
+After merging a change that touches scan behaviour, verify against real
+AWS with the before/after comparison script:
 
-# Run with coverage
-poetry run python -m pytest --cov=aws_scanner_lib tests/
+```bash
+scripts/e2e-diff.sh                        # compares origin/main~1 vs origin/main
+scripts/e2e-diff.sh --tag-key team         # exercise the tag-scan path too
 ```
 
 ## 🐛 Troubleshooting
@@ -412,7 +436,7 @@ grep -E "(boto|botocore|HTTP)" .debug_logs/aws_scanner_debug_*.log
 > [!Tip]
 > **🔧 Advanced Troubleshooting**: For detailed logging troubleshooting and configuration options, see [Logging Architecture - Troubleshooting Section](docs/LOGGING_ARCHITECTURE.md#troubleshooting).
 
-## � Quick Reference
+## 📌 Quick Reference
 
 ### Most Common Commands
 
@@ -449,6 +473,9 @@ poetry run aws-inventory --verbose --log-file audit.log scan --debug \
 The project includes comprehensive documentation covering all aspects of the system:
 
 - **[Architecture Documentation](docs/Architecture.md)**: System design, component interactions, and architectural patterns
+- **[In-Depth Guide](docs/aws-inventory-book.md)**: Comprehensive walk-through of the scanner
+- **[Architecture Decision Records](docs/adr/)**: Why things are built the way they are
+- **[Shell Completion](docs/SHELL_COMPLETION.md)**: Tab-completion setup for the CLI
 - **[Logging Architecture](docs/LOGGING_ARCHITECTURE.md)**: Complete logging system guide including:
   - AWS API tracing capabilities
   - Configuration examples
@@ -462,9 +489,9 @@ The project includes comprehensive documentation covering all aspects of the sys
 2. Create a feature branch: `git checkout -b feature/amazing-feature`
 3. Install development dependencies: Use [`./setup.sh`](./setup.sh)
 4. Set up pre-commit hooks: `pre-commit install --install-hooks`
-5. Make your changes and run tests: `./run_quick_tests.sh`
+5. Make your changes and run tests: `poetry run pytest`
 6. Test logging changes: `poetry run aws-inventory --verbose scan --debug --dry-run`
-7. Commit your changes: `git commit -m 'Add amazing feature'`
+7. Commit with a conventional-commit message (titles feed the release changelog): `git commit -m 'feat: add amazing feature'`
 8. Push to the branch: `git push origin feature/amazing-feature`
 9. Open a Pull Request
 
