@@ -9,7 +9,7 @@ this top to bottom once; each section is short.
 flowchart TD
     CLI["cli.py — parses flags, validates AWS credentials"] --> P["aws_scanner.py — perform_scan: one thread per region"]
     P -->|no tags| R["scan.py — scan_region: one thread per service"]
-    P -->|"--tag-key / --tag-value / --all-services"| T["scan.py — scan_all_services_with_tags"]
+    P -->|tag flags| T["scan.py — scan_all_services_with_tags"]
     R --> REG["services/registry.py — service name → scanner"]
     REG --> SVC["services/*_service.py — one scanner per AWS service"]
     T --> RG["resource_groups_utils.py — Resource Groups Tagging API + Auto Scaling merge"]

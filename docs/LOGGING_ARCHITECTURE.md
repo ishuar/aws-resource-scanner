@@ -34,6 +34,17 @@ tail -f .debug_logs/aws_scanner_debug_*.log          # follow a live scan
 grep -E "(boto|botocore|HTTP)" .debug_logs/*.log     # only the AWS API traffic
 ```
 
+What the API traffic looks like with `--verbose` + `--debug` (this is
+botocore's own logging, let through — see below):
+
+```
+[DEBUG] Event before-call.ec2.DescribeInstances: calling handler <function>
+[DEBUG] Making request for OperationModel(name=DescribeInstances) with params: {...}
+[DEBUG] Sending http request: <AWSPreparedRequest method=POST, url=https://ec2.us-east-1.amazonaws.com/>
+[DEBUG] https://ec2.us-east-1.amazonaws.com:443 "POST / HTTP/1.1" 200 1234
+[DEBUG] Response headers: {'x-amzn-RequestId': '12345-67890', ...}
+```
+
 ## How it works inside (`aws_scanner_lib/logging.py`)
 
 One `AWSLogger` object serves the whole process (a singleton —
