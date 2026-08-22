@@ -1,6 +1,6 @@
-# Shell Completion Setup for AWS Scanner
+# Shell Completion
 
-The AWS Scanner CLI supports shell auto-completion for enhanced productivity.
+Enable tab-completion for the `aws-inventory` CLI.
 
 ## Enable Auto-Completion
 
@@ -39,30 +39,11 @@ poetry run aws-inventory --install-completion
 poetry run aws-inventory --show-completion >> ~/.config/fish/completions/aws-inventory.fish
 ```
 
-## Usage Benefits
+## What completes
 
-With auto-completion enabled, you can:
-
-- Tab-complete commands: `aws-inventory <TAB>`
-- Tab-complete options: `aws-inventory scan --<TAB>`
-- Tab-complete values for some options
-- Get suggestions for service names, regions, etc.
-
-## Examples
-
-```bash
-# Type this and press TAB
-aws-inventory <TAB>
-# Shows: scan
-
-# Type this and press TAB
-aws-inventory scan --<TAB>
-# Shows: --regions, --service, --profile, --tag-key, etc.
-
-# Type this and press TAB
-aws-inventory scan --service <TAB>
-# Shows: ec2, s3, ecs, elb, vpc, autoscaling
-```
+- Commands: `aws-inventory <TAB>` → `scan`
+- Option names: `aws-inventory scan --<TAB>` → `--regions`, `--service`,
+  `--profile`, `--tag-key`, …
 
 ## Verification
 
