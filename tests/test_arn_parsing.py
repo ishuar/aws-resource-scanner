@@ -22,10 +22,12 @@ class TestExtractServiceAndType:
         arn = "arn:aws:sns:eu-central-1:111122223333:my-topic"
         assert _extract_service_and_type_from_arn(arn) == ("sns", "my-topic")
 
-    def test_s3_bucket_arn_has_empty_region_and_account(self) -> None:
-        # arn:aws:s3:::bucket-name — the resource part is the bucket name
+    def test_s3_bucket_arn_resolves_to_the_bucket_type(self) -> None:
+        # arn:aws:s3:::bucket-name carries no type segment; the type is
+        # "bucket", matching the per-service scanner vocabulary — not the
+        # bucket's own name.
         arn = "arn:aws:s3:::my-bucket"
-        assert _extract_service_and_type_from_arn(arn) == ("s3", "my-bucket")
+        assert _extract_service_and_type_from_arn(arn) == ("s3", "bucket")
 
     def test_malformed_arn_yields_empty_pair(self) -> None:
         assert _extract_service_and_type_from_arn("not-an-arn") == ("", "")
