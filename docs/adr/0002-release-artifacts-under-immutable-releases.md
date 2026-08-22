@@ -30,10 +30,12 @@ Two further defects sat on the same path:
 3. **Build once, publish that build.** The build job uploads `dist/` as a
    workflow artifact; the publish job downloads it instead of rebuilding,
    so the attestation describes exactly what users install.
-4. **Prevent, don't just recover.** `ci.yml` runs `poetry build` and
-   `twine check --strict` on every pull request, including
-   release-please's release PR. Packaging breakage surfaces before a
-   release exists.
+4. **Prevent, don't just recover.** `ci.yml` builds the distributions,
+   runs `twine check --strict`, then installs the wheel into a clean venv
+   and runs both console scripts — on every pull request, including
+   release-please's release PR. Metadata checks alone are not enough:
+   they passed for 0.1.0, whose wheel shipped without `cli.py` and so
+   died on `ModuleNotFoundError` the moment anyone installed it.
 5. **`workflow_dispatch` accepts a `publish_tag` input** to publish an
    already-released tag to PyPI without touching the release — the
    recovery path for a release that is already sealed.
