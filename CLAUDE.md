@@ -71,6 +71,29 @@ reintroduce them.
     a seam, interface, or config knob for a hypothetical second case.
     Registry dicts over plugin frameworks (`services/registry.py` is the
     house pattern). One adapter is a hypothetical seam; two make it real.
+15. **Docs ship in the same PR as the change.** A change to behaviour,
+    CLI, architecture, or product scope updates every document that
+    describes it — README, this file, `PRODUCT.md`, the relevant ADR —
+    in the same diff. A doc that contradicts the code is a bug and gets
+    triaged like one. (This does not break rule 5: the doc update is
+    part of the concern, not a second concern.)
+16. **Engineering decisions land in ADRs.** Every technical decision —
+    architecture, domain modelling, language or tooling choice, an
+    adopted best practice — gets a dedicated ADR in
+    `docs/adr/NNNN-short-slug.md`, written when the decision is made,
+    not reconstructed later. Format: Status / Context / Decision /
+    Consequences. Superseded ADRs are marked superseded and kept —
+    the history is the point. Division of record: `PRODUCT.md`'s
+    decision log owns product decisions (*what* to build, rule 13);
+    ADRs own engineering decisions (*how* to build it).
+    `docs/adr/0001-record-decisions-in-adrs.md` is both the first
+    instance and the template.
+17. **Stale instructions are worse than no instructions.** This file
+    and the ADRs are loaded as context into every AI session; anything
+    wrong in them gets confidently repeated. Prune or update them in
+    the same PR that invalidates them; delete roadmap/status notes once
+    they ship. When a doc and reality disagree, fix the doc first
+    (rule 15), then check what else trusted it.
 
 ## Git rules
 
@@ -101,11 +124,12 @@ reintroduce them.
 
 ## Documentation style
 
-- README and all user-facing docs follow the **i-have-adhd** output
-  style (`i-have-adhd@i-have-adhd` plugin skill): lead with the action,
+- All documentation — README, `PRODUCT.md`, ADRs, and this file — is
+  written using the **i-have-adhd** output style
+  (`i-have-adhd@i-have-adhd` plugin skill): lead with the action,
   numbered steps with one bounded action each, no preamble, no closing
-  filler, lists capped at 5. Use it both when generating docs and as the
-  checklist when reviewing them.
+  filler, lists capped at 5. Use the skill both when generating docs
+  and as the checklist when reviewing them.
 
 ## Testing
 
