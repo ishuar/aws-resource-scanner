@@ -125,6 +125,12 @@ SERVICE_FIXTURES: dict[str, dict[str, Any]] = {
                 "DBSnapshotArn": "arn:aws:rds:eu-central-1:1:snapshot:app-db-snap",
             }
         ],
+        "db_cluster_snapshots": [
+            {
+                "DBClusterSnapshotIdentifier": "app-cluster-snap",
+                "DBClusterSnapshotArn": "arn:aws:rds:eu-central-1:1:cluster-snapshot:app-cluster-snap",
+            }
+        ],
     },
     "autoscaling": {
         "auto_scaling_groups": [
@@ -222,6 +228,7 @@ def test_resource_types_are_pinned_per_producer() -> None:
         ],
         "rds": [
             "rds:db_cluster",
+            "rds:db_cluster_snapshot",
             "rds:db_instance",
             "rds:db_snapshot",
         ],

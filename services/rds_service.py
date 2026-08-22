@@ -23,6 +23,9 @@ RDS_SPECS: dict[str, Describe] = {
     "db_instances": Describe("describe_db_instances", "DBInstances"),
     "db_clusters": Describe("describe_db_clusters", "DBClusters"),
     "db_snapshots": Describe("describe_db_snapshots", "DBSnapshots"),
+    "db_cluster_snapshots": Describe(
+        "describe_db_cluster_snapshots", "DBClusterSnapshots"
+    ),
 }
 
 
@@ -63,6 +66,20 @@ def process_rds_output(
                 resource_type="rds:db_cluster",
                 resource_id=cluster_id,
                 resource_arn=cluster.get("DBClusterArn", "N/A"),
+            )
+        )
+
+    # DB Cluster Snapshots (Aurora)
+    for snapshot in service_data.get("db_cluster_snapshots", []):
+        snapshot_id = snapshot.get("DBClusterSnapshotIdentifier", "N/A")
+
+        flattened_resources.append(
+            Resource(
+                region=region,
+                resource_name=snapshot_id,
+                resource_type="rds:db_cluster_snapshot",
+                resource_id=snapshot_id,
+                resource_arn=snapshot.get("DBClusterSnapshotArn", "N/A"),
             )
         )
 

@@ -39,10 +39,16 @@ def _create_rds_resources(aws_session: Any) -> dict[str, str]:
         DBSnapshotIdentifier=snapshot_id,
         DBInstanceIdentifier=instance_id,
     )
+    cluster_snapshot_id = "app-cluster-manual-snap"
+    rds.create_db_cluster_snapshot(
+        DBClusterSnapshotIdentifier=cluster_snapshot_id,
+        DBClusterIdentifier=cluster_id,
+    )
     return {
         "instance_id": instance_id,
         "cluster_id": cluster_id,
         "snapshot_id": snapshot_id,
+        "cluster_snapshot_id": cluster_snapshot_id,
     }
 
 
@@ -54,7 +60,12 @@ class TestScanRds:
 
         result = scan_rds(aws_session, REGION)
 
-        assert set(result) == {"db_instances", "db_clusters", "db_snapshots"}
+        assert set(result) == {
+            "db_instances",
+            "db_clusters",
+            "db_snapshots",
+            "db_cluster_snapshots",
+        }
         # Membership, not exact counts: creating an aurora cluster may
         # auto-create instances, and moto may include automated snapshots.
         assert ids["instance_id"] in [
@@ -65,6 +76,9 @@ class TestScanRds:
         ]
         assert ids["snapshot_id"] in [
             s["DBSnapshotIdentifier"] for s in result["db_snapshots"]
+        ]
+        assert ids["cluster_snapshot_id"] in [
+            s["DBClusterSnapshotIdentifier"] for s in result["db_cluster_snapshots"]
         ]
 
     def test_raw_fields_for_waste_rules_are_present(self, aws_session: Any) -> None:
@@ -86,4 +100,9 @@ class TestScanRds:
         self, aws_session: Any
     ) -> None:
         result = scan_rds(aws_session, REGION)
-        assert result == {"db_instances": [], "db_clusters": [], "db_snapshots": []}
+        assert result == {
+            "db_instances": [],
+            "db_clusters": [],
+            "db_snapshots": [],
+            "db_cluster_snapshots": [],
+        }
