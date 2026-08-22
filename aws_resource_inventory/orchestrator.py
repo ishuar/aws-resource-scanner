@@ -27,11 +27,11 @@ from rich.progress import Progress
 from rich.table import Table
 
 # Import logging (using simplified logging)
-from aws_scanner_lib.logging import get_logger
-from aws_scanner_lib.outputs import TABLE_MINIMUM_WIDTH
+from aws_resource_inventory.lib.logging import get_logger
+from aws_resource_inventory.lib.outputs import TABLE_MINIMUM_WIDTH
 
 # Import modular components
-from aws_scanner_lib.scan import scan_region
+from aws_resource_inventory.lib.scan import scan_region
 
 # Global components
 console = Console()
@@ -173,7 +173,7 @@ def check_and_display_cache_status(
         return False
 
     # Import cache function
-    from aws_scanner_lib.cache import get_cached_result
+    from aws_resource_inventory.lib.cache import get_cached_result
 
     cached_items = []
 
@@ -349,7 +349,7 @@ def perform_scan(
 
         if use_resource_groups_api:
             # Use Resource Groups API for cross-service scanning (when tags provided or --all-services)
-            from aws_scanner_lib.scan import scan_all_services_with_tags
+            from aws_resource_inventory.lib.scan import scan_all_services_with_tags
 
             future_to_region = {
                 executor.submit(

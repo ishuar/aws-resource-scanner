@@ -13,16 +13,16 @@ from typing import Any
 
 from botocore.exceptions import ClientError
 
-from aws_scanner_lib.clients import get_scan_client
-from aws_scanner_lib.engine import (
+from aws_resource_inventory.lib.clients import get_scan_client
+from aws_resource_inventory.lib.engine import (
     ScanResult,
     collect_pages,
     finish,
     map_parallel,
     run_parallel,
 )
-from aws_scanner_lib.logging import get_logger
-from aws_scanner_lib.records import Resource
+from aws_resource_inventory.lib.logging import get_logger
+from aws_resource_inventory.lib.records import Resource
 
 logger = get_logger()
 

@@ -1,5 +1,5 @@
 """
-Client configuration seam: aws_scanner_lib.clients
+Client configuration seam: aws_resource_inventory.lib.clients
 
 Every scanning client must be built with the shared botocore config:
 a connection pool sized for the region x service x worker fan-out, and
@@ -11,7 +11,7 @@ from typing import Any
 
 import boto3
 
-from aws_scanner_lib.clients import SCAN_CLIENT_CONFIG, get_scan_client
+from aws_resource_inventory.lib.clients import SCAN_CLIENT_CONFIG, get_scan_client
 
 REGION = "eu-central-1"
 

@@ -14,9 +14,9 @@ so the whole scan is a Describe spec executed by the shared engine.
 
 from typing import Any
 
-from aws_scanner_lib.clients import get_scan_client
-from aws_scanner_lib.engine import Describe, ScanResult, scan_keyed
-from aws_scanner_lib.records import Resource
+from aws_resource_inventory.lib.clients import get_scan_client
+from aws_resource_inventory.lib.engine import Describe, ScanResult, scan_keyed
+from aws_resource_inventory.lib.records import Resource
 
 VPC_SPECS: dict[str, Describe] = {
     "vpcs": Describe("describe_vpcs", "Vpcs"),

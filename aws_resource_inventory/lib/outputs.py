@@ -13,7 +13,7 @@ from typing import Any, Literal
 from rich.console import Console
 from rich.table import Table
 
-from services.registry import SERVICES
+from aws_resource_inventory.services.registry import SERVICES
 
 from .records import Resource
 from .resource_groups_utils import SERVICE_SHAPED_SECTIONS

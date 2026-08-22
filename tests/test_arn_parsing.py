@@ -1,12 +1,12 @@
 """
-ARN parsing seam: aws_scanner_lib.resource_groups_utils
+ARN parsing seam: aws_resource_inventory.lib.resource_groups_utils
 
 These functions decide how every Resource-Groups-discovered resource is
 identified in the output. Expected values are worked examples from the AWS
 ARN documentation format: arn:partition:service:region:account:resource.
 """
 
-from aws_scanner_lib.resource_groups_utils import (
+from aws_resource_inventory.lib.resource_groups_utils import (
     _extract_resource_id_from_arn,
     _extract_service_and_type_from_arn,
     should_use_resource_groups_api,

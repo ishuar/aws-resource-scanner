@@ -8,7 +8,7 @@
   "changelog-type": "default",
   "draft": false,
   "extra-files": [
-    "__init__.py"
+    "aws_resource_inventory/__init__.py"
   ],
   "packages": {
     ".": {}

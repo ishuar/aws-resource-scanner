@@ -44,19 +44,15 @@ Homepage = "https://github.com/ishuar/aws-resource-inventory"
 Repository = "https://github.com/ishuar/aws-resource-inventory"
 
 [project.scripts]
-aws-inventory = "cli:app"
-aws-resource-inventory = "cli:app"
+aws-inventory = "aws_resource_inventory.cli:app"
+aws-resource-inventory = "aws_resource_inventory.cli:app"
 
 [tool.poetry]
-# cli.py and aws_scanner.py are top-level modules, not packages, so they
-# need explicit entries — without them the wheel installs but the
-# console scripts (`cli:app`) cannot import. The wheel smoke test in
-# .github/workflows/ci.yml is what catches that.
+# One package, so the wheel claims exactly one top-level name in
+# site-packages (see docs/adr/0004). tests/test_packaging.py pins that
+# every console-script module is listed here.
 packages = [
-    {include = "aws_scanner_lib"},
-    {include = "services"},
-    {include = "cli.py"},
-    {include = "aws_scanner.py"},
+    {include = "aws_resource_inventory"},
 ]
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.0"
@@ -111,10 +107,9 @@ strict_equality = true
 explicit_package_bases = true
 ignore_missing_imports = true
 files = [
-          'aws_scanner_lib/*.py',
-          'services/*.py',
-          'cli.py',
-          'aws_scanner.py',
+          'aws_resource_inventory/*.py',
+          'aws_resource_inventory/lib/*.py',
+          'aws_resource_inventory/services/*.py',
           'tests/*.py'
 ]
 exclude = [
@@ -144,17 +139,21 @@ allowed-confusables = ["×"]
 
 [tool.ruff.lint.per-file-ignores]
 # typer declares CLI options as function-call defaults by design
-"cli.py" = ["B008"]
+"aws_resource_inventory/cli.py" = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "--verbose --tb=short --strict-markers --cov=aws_scanner_lib --cov=services --cov-report=term-missing"
+# Scope matches what was measured before the package restructure: the
+# library and the scanners. cli.py and orchestrator.py stay unmeasured
+# until the CLI-level tests on the roadmap land — folding them in here
+# would report a coverage cliff that no code change caused.
+addopts = "--verbose --tb=short --strict-markers --cov=aws_resource_inventory/lib --cov=aws_resource_inventory/services --cov-report=term-missing"
 
 [tool.coverage.run]
-source = ["aws_scanner_lib", "services"]
+source = ["aws_resource_inventory/lib", "aws_resource_inventory/services"]
 omit = [
     "*/tests/*",
     "*/test_*",

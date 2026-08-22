@@ -10,11 +10,11 @@ observable results.
 
 from typing import Any
 
-from aws_scanner_lib.resource_groups_utils import (
+from aws_resource_inventory.lib.resource_groups_utils import (
     get_all_tagged_resources_across_services,
     scan_all_tagged_resources,
 )
-from aws_scanner_lib.scan import scan_all_services_with_tags
+from aws_resource_inventory.lib.scan import scan_all_services_with_tags
 
 REGION = "eu-central-1"
 
@@ -139,7 +139,7 @@ class TestTagScanFlattensEndToEnd:
     ) -> None:
         import json
 
-        from aws_scanner_lib.outputs import output_results
+        from aws_resource_inventory.lib.outputs import output_results
 
         create_tagged_fixtures(aws_session)
 

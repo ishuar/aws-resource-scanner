@@ -10,7 +10,7 @@ vocabulary is pinned centrally in tests/test_resource_shape.py.
 
 from typing import Any
 
-from services.rds_service import scan_rds
+from aws_resource_inventory.services.rds_service import scan_rds
 
 REGION = "eu-central-1"
 

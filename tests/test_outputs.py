@@ -1,5 +1,5 @@
 """
-Output seam: aws_scanner_lib.outputs.output_results and the markdown report.
+Output seam: aws_resource_inventory.lib.outputs.output_results and the markdown report.
 
 output_results is the single funnel from nested scan results to files on
 disk. These tests pin: format routing, which files get written, the return
@@ -11,8 +11,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from aws_scanner_lib.outputs import generate_markdown_summary, output_results
-from aws_scanner_lib.records import Resource
+from aws_resource_inventory.lib.outputs import generate_markdown_summary, output_results
+from aws_resource_inventory.lib.records import Resource
 
 REGION = "eu-central-1"
 

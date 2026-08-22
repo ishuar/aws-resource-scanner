@@ -7,14 +7,14 @@ this top to bottom once; each section is short.
 
 ```mermaid
 flowchart TD
-    CLI["cli.py — parses flags, validates AWS credentials"] --> P["aws_scanner.py — perform_scan: one thread per region"]
+    CLI["aws_resource_inventory/cli.py — parses flags, validates AWS credentials"] --> P["aws_resource_inventory/orchestrator.py — perform_scan: one thread per region"]
     P -->|no tags| R["scan.py — scan_region: one thread per service"]
     P -->|tag flags| T["scan.py — scan_all_services_with_tags"]
-    R --> REG["services/registry.py — service name → scanner"]
-    REG --> SVC["services/*_service.py — one scanner per AWS service"]
+    R --> REG["aws_resource_inventory/services/registry.py — service name → scanner"]
+    REG --> SVC["aws_resource_inventory/services/*_service.py — one scanner per AWS service"]
     T --> RG["resource_groups_utils.py — Resource Groups Tagging API + Auto Scaling merge"]
-    SVC --> ENG["aws_scanner_lib/engine.py — pagination, concurrency, error policy"]
-    ENG --> CL["aws_scanner_lib/clients.py — the only boto3 client factory"]
+    SVC --> ENG["aws_resource_inventory/lib/engine.py — pagination, concurrency, error policy"]
+    ENG --> CL["aws_resource_inventory/lib/clients.py — the only boto3 client factory"]
     RG --> CL
     R --> OUT["outputs.py — Resource records → table / JSON / Markdown"]
     T --> OUT
@@ -33,16 +33,16 @@ Two paths, chosen by your flags:
 
 | Module | Job | The one fact to remember |
 |---|---|---|
-| `cli.py` | Flags, credential check, progress display | `--verbose`/`--log-file` are global: they go before `scan` |
-| `aws_scanner.py` | Fan out regions on threads | Picks per-service vs tag path |
-| `aws_scanner_lib/scan.py` | Fan out services per region; caching | Results cached 10 min per (region, service, tags) |
-| `services/registry.py` | Service name → scanner + output processor | Adding a service is one entry here |
-| `services/*_service.py` | One scanner per AWS service | Declarative ones are a `Describe` dict + 3-line function |
-| `aws_scanner_lib/engine.py` | Pagination, parallel collection, error guard, tag matching | Result always has exactly the requested keys; AWS errors degrade a key to `[]` with a warning, other errors surface |
-| `aws_scanner_lib/clients.py` | Builds every boto3 client | Connection pool 50, adaptive retries, thread-safe creation |
-| `aws_scanner_lib/records.py` | `Resource` — the typed record | Malformed records fail at construction, not at report time |
-| `aws_scanner_lib/outputs.py` | Records → table / JSON / Markdown | Caller states the scan path via `source=` — never guessed |
-| `aws_scanner_lib/cache.py` | Pickle cache with 10-min TTL | Best-effort: any cache failure is just a miss |
+| `aws_resource_inventory/cli.py` | Flags, credential check, progress display | `--verbose`/`--log-file` are global: they go before `scan` |
+| `aws_resource_inventory/orchestrator.py` | Fan out regions on threads | Picks per-service vs tag path |
+| `aws_resource_inventory/lib/scan.py` | Fan out services per region; caching | Results cached 10 min per (region, service, tags) |
+| `aws_resource_inventory/services/registry.py` | Service name → scanner + output processor | Adding a service is one entry here |
+| `aws_resource_inventory/services/*_service.py` | One scanner per AWS service | Declarative ones are a `Describe` dict + 3-line function |
+| `aws_resource_inventory/lib/engine.py` | Pagination, parallel collection, error guard, tag matching | Result always has exactly the requested keys; AWS errors degrade a key to `[]` with a warning, other errors surface |
+| `aws_resource_inventory/lib/clients.py` | Builds every boto3 client | Connection pool 50, adaptive retries, thread-safe creation |
+| `aws_resource_inventory/lib/records.py` | `Resource` — the typed record | Malformed records fail at construction, not at report time |
+| `aws_resource_inventory/lib/outputs.py` | Records → table / JSON / Markdown | Caller states the scan path via `source=` — never guessed |
+| `aws_resource_inventory/lib/cache.py` | Pickle cache with 10-min TTL | Best-effort: any cache failure is just a miss |
 
 ## The data shape
 
@@ -71,10 +71,10 @@ through their registered processors instead of the generic one.
 
 ## Adding a service
 
-1. Create `services/<name>_service.py`: a `Describe` spec dict + a
+1. Create `aws_resource_inventory/services/<name>_service.py`: a `Describe` spec dict + a
    3-line `scan_<name>` (copy `vpc_service.py`), plus a
    `process_<name>_output` that builds `Resource` records.
-2. Register it: one entry in `services/registry.py`.
+2. Register it: one entry in `aws_resource_inventory/services/registry.py`.
 3. Test it: `tests/test_<name>_scanner.py` (moto, written failing
    first) and add the processor to `tests/test_resource_shape.py`.
 4. Update the README services table.

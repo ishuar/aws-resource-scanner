@@ -15,9 +15,9 @@ Documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/reference
 
 from typing import Any
 
-from aws_scanner_lib.clients import get_scan_client
-from aws_scanner_lib.engine import Describe, ScanResult, scan_keyed
-from aws_scanner_lib.records import Resource
+from aws_resource_inventory.lib.clients import get_scan_client
+from aws_resource_inventory.lib.engine import Describe, ScanResult, scan_keyed
+from aws_resource_inventory.lib.records import Resource
 
 RDS_SPECS: dict[str, Describe] = {
     "db_instances": Describe("describe_db_instances", "DBInstances"),

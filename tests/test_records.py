@@ -1,5 +1,5 @@
 """
-Record seam: aws_scanner_lib.records.Resource — the one definition of
+Record seam: aws_resource_inventory.lib.records.Resource — the one definition of
 the scan-record shape every producer constructs and every output
 consumes. A malformed record fails at construction, not at report time.
 """
@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from aws_scanner_lib.records import Resource
+from aws_resource_inventory.lib.records import Resource
 
 REGION = "eu-central-1"
 

@@ -50,7 +50,7 @@ reintroduce them.
    couldn't even be imported). Apply the deletion test with evidence
    before investing in a fix.
 9. **Every scanning client comes from
-   `aws_scanner_lib.clients.get_scan_client`** — never `session.client()`
+   `aws_resource_inventory.lib.clients.get_scan_client`** — never `session.client()`
    directly. It owns pool size, timeouts, adaptive retries, the
    creation lock (boto3 sessions are not thread-safe for client
    creation), and the `aws-resource-inventory` user-agent stamp.
@@ -78,7 +78,7 @@ reintroduce them.
     specifically, rules 16 and 18 apply.
 15. **Two real implementations before an abstraction.** Don't introduce
     a seam, interface, or config knob for a hypothetical second case.
-    Registry dicts over plugin frameworks (`services/registry.py` is the
+    Registry dicts over plugin frameworks (`aws_resource_inventory/services/registry.py` is the
     house pattern). One adapter is a hypothetical seam; two make it real.
 16. **Docs ship in the same PR as the change.** A change to behaviour,
     CLI, architecture, or product scope updates every document that
@@ -126,8 +126,8 @@ reintroduce them.
 - stdlib and existing dependencies first. A new runtime dependency is
   its own justified PR (what it buys, why stdlib can't).
 - New modules mirror the existing layout: one service = one
-  `services/<name>_service.py` + one registry entry; shared logic lives
-  in `aws_scanner_lib`.
+  `aws_resource_inventory/services/<name>_service.py` + one registry entry; shared logic lives
+  in `aws_resource_inventory/lib`.
 - Comments state constraints the code can't show — never narrate what
   the next line does.
 
@@ -155,20 +155,25 @@ reintroduce them.
 
 ## Architecture notes
 
-- Packages: `aws_scanner_lib` (engine, orchestration, cache, outputs,
-  clients, logging) and `services` (per-AWS-service scanners +
-  `services/registry.py`, the single source of truth mapping service
-  name → scanner + output processor).
+- **One installed package: `aws_resource_inventory/`.** Everything lives
+  under it so the wheel claims a single top-level name in site-packages
+  (ADR-0004). Inside it: `cli.py` (typer app and the only place rich
+  rendering belongs), `orchestrator.py` (region fan-out), `lib/` (engine,
+  cache, outputs, clients, logging), and `services/` (per-AWS-service
+  scanners + `services/registry.py`, the single source of truth mapping
+  service name → scanner + output processor). Import paths are
+  `aws_resource_inventory.lib.*` and `aws_resource_inventory.services.*`;
+  never add a new top-level module.
 - Adding a service = one module + one `SERVICES` registry entry.
 - The flattened record contract (region/resource_type/resource_id/
   resource_arn, optional resource_name) is pinned by
   tests/test_resource_shape.py — changing it is a deliberate act.
-- Shipped: the shared scanning engine (`aws_scanner_lib/engine.py`) —
+- Shipped: the shared scanning engine (`aws_resource_inventory/lib/engine.py`) —
   every scanner runs on it; pagination, guarded parallel collection,
   ordered fan-out, and tag matching live there and nowhere else. Fully
   declarative scanners are a `Describe` dict + a 3-line function;
   imperative ones stay plain functions calling the engine helpers.
-- Shipped: the typed record — `aws_scanner_lib/records.py` `Resource`
+- Shipped: the typed record — `aws_resource_inventory/lib/records.py` `Resource`
   (frozen dataclass) is what every processor constructs and every
   output consumes; `to_record()` owns serialization. `output_results`
   takes a required `source` ("services" | "tagging"); the tag scan is a
@@ -184,7 +189,7 @@ reintroduce them.
   (ec2 instances and ecs records show raw ids in reports today); unify
   the six copies of the scan-path predicate (`all_services or tag_key
   or tag_value`) behind one helper; a progress-event seam so rich
-  rendering lives only in cli.py (plus shrinking the logging module
+  rendering lives only in aws_resource_inventory/cli.py (plus shrinking the logging module
   and adding CLI-level tests); one shared scan interface over the
   per-service and tag-scan paths so retries/cancellation/progress
   apply to both. Check open PRs for live status.

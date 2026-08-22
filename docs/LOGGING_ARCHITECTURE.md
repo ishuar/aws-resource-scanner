@@ -45,7 +45,7 @@ botocore's own logging, let through — see below):
 [DEBUG] Response headers: {'x-amzn-RequestId': '12345-67890', ...}
 ```
 
-## How it works inside (`aws_scanner_lib/logging.py`)
+## How it works inside (`aws_resource_inventory/lib/logging.py`)
 
 One `AWSLogger` object serves the whole process (a singleton —
 `get_logger()` returns it from anywhere; the `name` argument is
@@ -70,14 +70,14 @@ accepted for compatibility but ignored).
 > [!NOTE]
 > While the live progress display is running, console logging is paused
 > (`disable_console_output` / `enable_console_output` around the
-> display in `cli.py`) so log lines cannot corrupt the progress bars.
+> display in `aws_resource_inventory/cli.py`) so log lines cannot corrupt the progress bars.
 > File logging continues uninterrupted. This pairing is a known sharp
 > edge; a progress-event redesign is on the roadmap.
 
 ## Extending
 
 To trace one more library under `--verbose`, add its logger name to
-`_enable_detailed_aws_logging()` in `aws_scanner_lib/logging.py`. To
+`_enable_detailed_aws_logging()` in `aws_resource_inventory/lib/logging.py`. To
 silence a noisy one in normal mode, add it to
 `_suppress_noisy_loggers()`. That is the entire extension surface —
 scanners never configure logging themselves; they call `get_logger()`

@@ -104,9 +104,17 @@ if [[ -n "${TAG_KEY}" ]]; then SCAN_ARGS+=(--tag-key "${TAG_KEY}"); fi
 if [[ -n "${TAG_VALUE}" ]]; then SCAN_ARGS+=(--tag-value "${TAG_VALUE}"); fi
 
 run_scan() { # $1 = worktree, $2 = output file
-  # python puts the script's directory first on sys.path, so cli.py and its
-  # imports resolve from the worktree while reusing this repo's poetry venv.
-  poetry run python "$1/cli.py" "${SCAN_ARGS[@]}" -o "$2" >"$2.log" 2>&1 \
+  # Run the worktree's own code while reusing this repo's poetry venv for
+  # dependencies. Both layouts appear in history and --before can reach
+  # either: the package layout (ADR-0004) needs the worktree root on
+  # sys.path, the pre-0.1.1 layout ran cli.py directly.
+  local -a runner
+  if [[ -f "$1/aws_resource_inventory/cli.py" ]]; then
+    runner=(env "PYTHONPATH=$1" poetry run python -m aws_resource_inventory.cli)
+  else
+    runner=(poetry run python "$1/cli.py")
+  fi
+  "${runner[@]}" "${SCAN_ARGS[@]}" -o "$2" >"$2.log" 2>&1 \
     || { echo "ERROR: scan failed for $1 — log follows" >&2; tail -30 "$2.log" >&2; exit 2; }
 }
 

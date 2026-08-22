@@ -1,7 +1,7 @@
 """--service tab-completion suggests registry service names."""
 
-from cli import complete_service_name
-from services.registry import SUPPORTED_SERVICES
+from aws_resource_inventory.cli import complete_service_name
+from aws_resource_inventory.services.registry import SUPPORTED_SERVICES
 
 
 def test_empty_prefix_suggests_every_registered_service() -> None:
