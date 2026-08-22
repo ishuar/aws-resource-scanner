@@ -2,19 +2,27 @@
 
 Enable tab-completion for the `aws-inventory` CLI.
 
+> [!IMPORTANT]
+> Completion only works when `aws-inventory` is on your `PATH`, because
+> the shell runs that command to fetch suggestions. `poetry run
+> aws-inventory <TAB>` never completes — the shell is completing
+> `poetry`, not `aws-inventory`. Install it as a tool
+> (`uv tool install aws-resource-inventory` or `pipx install
+> aws-resource-inventory`), or activate the project virtualenv first.
+
 ## Enable Auto-Completion
 
 ### For Zsh (macOS default)
 
 ```bash
 # Show completion script for your shell
-poetry run aws-inventory --show-completion
+aws-inventory --show-completion
 
 # Install completion for current shell
-poetry run aws-inventory --install-completion
+aws-inventory --install-completion
 
 # Or manually add to your shell config
-poetry run aws-inventory --show-completion >> ~/.zshrc
+aws-inventory --show-completion >> ~/.zshrc
 source ~/.zshrc
 ```
 
@@ -22,10 +30,10 @@ source ~/.zshrc
 
 ```bash
 # Install completion for current shell
-poetry run aws-inventory --install-completion
+aws-inventory --install-completion
 
 # Or manually add to your bash config
-poetry run aws-inventory --show-completion >> ~/.bashrc
+aws-inventory --show-completion >> ~/.bashrc
 source ~/.bashrc
 ```
 
@@ -33,10 +41,10 @@ source ~/.bashrc
 
 ```bash
 # Install completion for current shell
-poetry run aws-inventory --install-completion
+aws-inventory --install-completion
 
 # Or manually add to fish config
-poetry run aws-inventory --show-completion >> ~/.config/fish/completions/aws-inventory.fish
+aws-inventory --show-completion >> ~/.config/fish/completions/aws-inventory.fish
 ```
 
 ## What completes

@@ -1,5 +1,6 @@
 # AWS Resource Inventory
 
+[![PyPI](https://img.shields.io/pypi/v/aws-resource-inventory.svg)](https://pypi.org/project/aws-resource-inventory/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -36,12 +37,15 @@ A comprehensive AWS multi-service scanner with tag-based filtering, parallel pro
 
 Before installing the AWS Resource Inventory, ensure you have the following dependencies:
 
-### Required Software
-- **Python 3.10+** - Runtime environment
-- **Poetry** - Python dependency management and packaging
-- **pip** - Python package installer
-- **AWS CLI** - AWS command line interface for authentication
-- **pre-commit** - Git hooks framework (for development)
+### To run it
+- **Python 3.10+** — the only hard requirement.
+- **An installer** — [uv](https://docs.astral.sh/uv/) or
+  [pipx](https://pipx.pypa.io/) recommended; plain `pip` works too.
+- **AWS CLI** — optional, but the easiest way to set up credentials.
+
+### To develop on it
+- **Poetry** — dependency management and packaging.
+- **pre-commit** — git hooks framework.
 
 ### AWS Configuration
 - Valid AWS credentials configured via:
@@ -89,51 +93,81 @@ scan (`tag:GetResources`, only exercised with `--tag-key`/`--tag-value`/
 > templates — both use the EC2 API. The AWS-managed `ReadOnlyAccess`
 > policy works too if you prefer not to maintain a custom one.
 
-## 🚀 **Installation**
+## 🚀 Installation
 
-### Automated Setup (Recommended)
-
-The easiest way to get started is using our automated setup script:
+Install from PyPI — it is a CLI, so install it as a tool rather than into
+a project's dependencies:
 
 ```bash
-# Clone the repository
+# uv (recommended — fastest, isolated tool environment)
+uv tool install aws-resource-inventory
+
+# pipx (equally good; the established option for Python CLIs)
+pipx install aws-resource-inventory
+
+# pip — use a virtualenv, not a system Python
+pip install aws-resource-inventory
+```
+
+Verify it:
+
+```bash
+aws-inventory --help
+```
+
+Both `aws-inventory` and the longer `aws-resource-inventory` are
+installed; they are the same command.
+
+### Run it once without installing
+
+```bash
+uvx aws-resource-inventory scan --regions us-east-1
+```
+
+### Pin a version, or upgrade
+
+Latest is the default above. Pin an exact version for CI or reproducible
+environments — available versions are listed on
+[PyPI](https://pypi.org/project/aws-resource-inventory/#history):
+
+```bash
+uv tool install "aws-resource-inventory==X.Y.Z"
+pipx install "aws-resource-inventory==X.Y.Z"
+```
+
+```bash
+# Upgrade an existing install
+uv tool upgrade aws-resource-inventory
+pipx upgrade aws-resource-inventory
+```
+
+> [!TIP]
+> Shell tab-completion needs `aws-inventory` on your `PATH`, which the
+> installs above give you. Run
+> `aws-inventory --install-completion`, then restart your shell — see
+> [Shell Completion](docs/SHELL_COMPLETION.md).
+
+### Development setup
+
+Working on the scanner itself, rather than using it:
+
+```bash
 git clone https://github.com/ishuar/aws-resource-inventory.git
 cd aws-resource-inventory
 
-# Run the automated setup script
+# Automated: installs Python, Poetry, pre-commit, dependencies, AWS CLI
 ./setup.sh
-```
 
-The setup script will:
-1. ✅ Check and install Python 3.10+
-2. ✅ Install Poetry (Python dependency manager)
-3. ✅ Install pre-commit (Git hooks framework)
-4. ✅ Set up pre-commit hooks
-5. ✅ Install all project dependencies via Poetry
-6. ✅ Run verification tests
-7. ✅ Install AWS CLI (if not present)
-8. ✅ Provide AWS configuration guidance
-
-> [!Tip]
-> For detailed setup instructions and troubleshooting, see [setup.sh](setup.sh).
-
-### Manual Installation
-
-If you prefer manual installation:
-
-```bash
-# Install dependencies (macOS with Homebrew)
-brew install python3 poetry pre-commit awscli
-
-# Install project dependencies
+# Or manually
+brew install python3 poetry pre-commit awscli   # macOS
 poetry install
-
-# Set up pre-commit hooks
 pre-commit install --install-hooks
-
-# Verify installation
 ./run_quick_tests.sh
 ```
+
+From a clone, prefix commands with `poetry run` — `poetry run
+aws-inventory scan …` — or activate the virtualenv. The examples below
+assume an installed CLI.
 
 ## 💻 Usage
 
@@ -141,7 +175,7 @@ pre-commit install --install-hooks
 
 All commands follow this pattern:
 ```bash
-poetry run aws-inventory [GLOBAL OPTIONS] COMMAND [COMMAND OPTIONS]
+aws-inventory [GLOBAL OPTIONS] COMMAND [COMMAND OPTIONS]
 ```
 
 Global options apply to all commands: `--verbose` / `-v` (AWS API tracing,
@@ -157,133 +191,133 @@ main command is `scan`.
 
 ```bash
 # Display help and available commands
-poetry run aws-inventory --help
+aws-inventory --help
 
 # Display scan command help and options
-poetry run aws-inventory scan --help
+aws-inventory scan --help
 
 # Basic scan with default settings (all supported services)
-poetry run aws-inventory scan --regions us-east-1,eu-west-1,eu-central-1,us-west-2
+aws-inventory scan --regions us-east-1,eu-west-1,eu-central-1,us-west-2
 
 # Scan specific services
-poetry run aws-inventory scan --service ec2
+aws-inventory scan --service ec2
 
 # Scan specific regions
-poetry run aws-inventory scan --regions us-east-1,eu-west-1
+aws-inventory scan --regions us-east-1,eu-west-1
 ```
 
 ### Debug and Logging Options
 
 ```bash
 # Enable debug mode for detailed execution traces
-poetry run aws-inventory scan --debug --regions us-east-1
+aws-inventory scan --debug --regions us-east-1
 
 # Enable verbose AWS API tracing (requires --debug)
-poetry run aws-inventory --verbose scan --debug --service ec2
+aws-inventory --verbose scan --debug --service ec2
 
 # Custom log file for debug output
-poetry run aws-inventory --log-file /tmp/my-scan.log scan --debug --regions us-east-1
+aws-inventory --log-file /tmp/my-scan.log scan --debug --regions us-east-1
 
 # Combine verbose logging with custom log file
-poetry run aws-inventory --verbose --log-file /tmp/aws-api-trace.log scan --debug --service ec2 --service s3
+aws-inventory --verbose --log-file /tmp/aws-api-trace.log scan --debug --service ec2 --service s3
 
 # Debug with dry run (no actual scanning)
-poetry run aws-inventory --verbose scan --debug --dry-run --service vpc
+aws-inventory --verbose scan --debug --dry-run --service vpc
 ```
 
 ### Service-Specific Scanning
 
 ```bash
 # Scan only EC2 resources
-poetry run aws-inventory scan --service ec2
+aws-inventory scan --service ec2
 
 # Scan multiple services
-poetry run aws-inventory scan --service ec2 --service s3 --service vpc
+aws-inventory scan --service ec2 --service s3 --service vpc
 
 # Scan all built-in services in specific regions
-poetry run aws-inventory scan --regions us-east-1,us-west-2
+aws-inventory scan --regions us-east-1,us-west-2
 
 # Combine service and region filtering
-poetry run aws-inventory scan --service ec2 --regions eu-central-1,eu-west-1
+aws-inventory scan --service ec2 --regions eu-central-1,eu-west-1
 
 # Scan ALL AWS services using Resource Groups API (requires tags)
-poetry run aws-inventory scan --all-services --tag-key Environment --tag-value Production
+aws-inventory scan --all-services --tag-key Environment --tag-value Production
 ```
 
 ### Tag-Based Filtering
 
 ```bash
 # Filter by environment tag
-poetry run aws-inventory scan --tag-key Environment --tag-value Production
+aws-inventory scan --tag-key Environment --tag-value Production
 
 # Filter by application tag
-poetry run aws-inventory scan --tag-key app --tag-value web-server
+aws-inventory scan --tag-key app --tag-value web-server
 
 # Filter by cost center in specific regions
-poetry run aws-inventory scan --regions us-east-1 --tag-key CostCenter --tag-value Engineering
+aws-inventory scan --regions us-east-1 --tag-key CostCenter --tag-value Engineering
 ```
 
 ### Output Formats
 
 ```bash
 # Default table format (human-readable)
-poetry run aws-inventory scan --format table
+aws-inventory scan --format table
 
 # JSON format for programmatic processing
-poetry run aws-inventory scan --format json --output results.json
+aws-inventory scan --format json --output results.json
 
 # Markdown format for documentation
-poetry run aws-inventory scan --format md --output report.md
+aws-inventory scan --format md --output report.md
 
 # Export filtered results to JSON
-poetry run aws-inventory scan --tag-key Environment --tag-value Production --format json --output prod-resources.json
+aws-inventory scan --tag-key Environment --tag-value Production --format json --output prod-resources.json
 ```
 
 ### Advanced Options
 
 ```bash
 # Dry run (preview without execution)
-poetry run aws-inventory scan --dry-run --service ec2
+aws-inventory scan --dry-run --service ec2
 
 # Disable caching for fresh data
-poetry run aws-inventory scan --no-cache
+aws-inventory scan --no-cache
 
 # Configure worker threads for performance
-poetry run aws-inventory scan --max-workers 10 --service-workers 6
+aws-inventory scan --max-workers 10 --service-workers 6
 
 # Continuous refresh mode with custom interval
-poetry run aws-inventory scan --refresh --refresh-interval 30 --service ec2
+aws-inventory scan --refresh --refresh-interval 30 --service ec2
 
 # Debug mode with performance timing
-poetry run aws-inventory --verbose scan --debug --max-workers 1 --service ec2
+aws-inventory --verbose scan --debug --max-workers 1 --service ec2
 ```
 
 ### Real-World Examples
 
 ```bash
 # Production infrastructure audit with comprehensive logging
-poetry run aws-inventory --verbose --log-file prod-audit.log scan \
+aws-inventory --verbose --log-file prod-audit.log scan \
     --debug --tag-key Environment --tag-value Production \
     --format json --output production-audit.json
 
 # Regional compliance check with detailed tracing
-poetry run aws-inventory --verbose --log-file compliance-trace.log scan \
+aws-inventory --verbose --log-file compliance-trace.log scan \
     --debug --regions eu-west-1,eu-central-1 \
     --service ec2 --format md --output eu-compliance-report.md
 
 # Application-specific resource discovery across all AWS services
-poetry run aws-inventory scan \
+aws-inventory scan \
     --all-services --tag-key Application --tag-value MyApp \
     --format table --regions us-east-1
 
 # Development environment troubleshooting with verbose logging
-poetry run aws-inventory --verbose --log-file dev-debug.log scan \
+aws-inventory --verbose --log-file dev-debug.log scan \
     --debug --regions us-west-2 \
     --tag-key Environment --tag-value Development \
     --no-cache --dry-run
 
 # Performance analysis with sequential processing
-poetry run aws-inventory --verbose --log-file perf-analysis.log scan \
+aws-inventory --verbose --log-file perf-analysis.log scan \
     --debug --max-workers 1 --service-workers 1 \
     --service ec2 --service s3 --regions us-east-1
 ```
@@ -309,7 +343,7 @@ The scanner features a comprehensive logging system with multiple configuration 
 
 ```bash
 # Global logging options (apply to all commands)
-poetry run aws-inventory --verbose --log-file /path/to/logfile.log scan --debug
+aws-inventory --verbose --log-file /path/to/logfile.log scan --debug
 
 # Debug modes explained:
 # --debug: Enable debug mode with rich console output and file logging
@@ -415,9 +449,10 @@ scripts/e2e-diff.sh --tag-key team         # exercise the tag-scan path too
    python3 --version
    ```
 
-3. **Dependencies**: Reinstall dependencies if needed
+3. **Reinstall** if the CLI misbehaves after an upgrade
    ```bash
-   poetry install --no-cache
+   uv tool install --force aws-resource-inventory   # installed from PyPI
+   poetry install --no-cache                        # working from a clone
    ```
 
 4. **Permissions**: Ensure your AWS user/role has necessary permissions for the services you're scanning
@@ -428,10 +463,10 @@ The advanced logging system provides powerful debugging capabilities:
 
 ```bash
 # Basic debug information
-poetry run aws-inventory scan --debug --dry-run
+aws-inventory scan --debug --dry-run
 
 # Verbose AWS API tracing for troubleshooting
-poetry run aws-inventory --verbose --log-file debug-trace.log scan --debug --service ec2
+aws-inventory --verbose --log-file debug-trace.log scan --debug --service ec2
 
 # Check debug log files (automatically created)
 ls .debug_logs/
@@ -457,19 +492,19 @@ files are missing, check permissions on the `.debug_logs/` directory.
 
 ```bash
 # Quick scan with basic output
-poetry run aws-inventory scan --regions us-east-1
+aws-inventory scan --regions us-east-1
 
 # Debug mode with detailed logging
-poetry run aws-inventory scan --debug --regions us-east-1
+aws-inventory scan --debug --regions us-east-1
 
 # Full AWS API tracing (development/troubleshooting)
-poetry run aws-inventory --verbose --log-file trace.log scan --debug --service ec2
+aws-inventory --verbose --log-file trace.log scan --debug --service ec2
 
 # Tag-based filtering across all AWS services
-poetry run aws-inventory scan --all-services --tag-key Environment --tag-value Production
+aws-inventory scan --all-services --tag-key Environment --tag-value Production
 
 # Production audit with comprehensive logging
-poetry run aws-inventory --verbose --log-file audit.log scan --debug \
+aws-inventory --verbose --log-file audit.log scan --debug \
     --tag-key Environment --tag-value Production --format json --output audit.json
 ```
 
@@ -477,11 +512,11 @@ poetry run aws-inventory --verbose --log-file audit.log scan --debug \
 
 | Scenario         | Command Pattern                                          | Purpose                        |
 |------------------|----------------------------------------------------------|--------------------------------|
-| **Basic Scan**   | `poetry run aws-inventory scan`                            | Standard resource discovery    |
-| **Debug Mode**   | `poetry run aws-inventory scan --debug`                    | Detailed execution information |
-| **API Tracing**  | `poetry run aws-inventory --verbose scan --debug`          | Full AWS API call logging      |
-| **Custom Logs**  | `poetry run aws-inventory --log-file path scan --debug`    | Custom log file location       |
-| **All Services** | `poetry run aws-inventory scan --all-services --tag-key X` | Discover 100+ AWS services     |
+| **Basic Scan**   | `aws-inventory scan`                            | Standard resource discovery    |
+| **Debug Mode**   | `aws-inventory scan --debug`                    | Detailed execution information |
+| **API Tracing**  | `aws-inventory --verbose scan --debug`          | Full AWS API call logging      |
+| **Custom Logs**  | `aws-inventory --log-file path scan --debug`    | Custom log file location       |
+| **All Services** | `aws-inventory scan --all-services --tag-key X` | Discover 100+ AWS services     |
 
 ## 📖 Documentation
 
