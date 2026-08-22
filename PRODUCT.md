@@ -1,6 +1,8 @@
 # PRODUCT.md — `aws-inventory waste`
 
-**Status:** Spec agreed (grilling session, 2026-08-22). Not yet implemented.
+**Status:** Spec agreed (grilling session, 2026-08-22). Groundwork shipped:
+the RDS and EFS scanners (§4) and the typed `Resource` record are on main;
+the `waste` verb itself is not yet implemented.
 **One-liner:** Find AWS resources that are still generating costs but are no longer used, and report them with evidence and an estimated monthly saving — read-only, zero setup.
 
 ---
@@ -74,7 +76,7 @@ Output: existing table/JSON pipeline. Summary line: findings count + total estim
 
 ### Provider 1: state rules
 
-Deterministic checks over the existing inventory plus two new scanners (**RDS**, **EFS** — added to `services/registry.py` following the existing pattern). Elastic Beanstalk is deliberately skipped: its resources are EC2/ASG/ELB underneath and already visible.
+Deterministic checks over the existing inventory plus two new scanners (**RDS** — including Aurora cluster snapshots — and **EFS**; both shipped, registered in `services/registry.py`). Elastic Beanstalk is deliberately skipped: its resources are EC2/ASG/ELB underneath and already visible.
 
 | Rule | Trigger | Confidence | Action |
 |---|---|---|---|

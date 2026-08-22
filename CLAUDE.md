@@ -8,8 +8,10 @@ reintroduce them.
 
 ## Product context
 
-- Today: a read-only multi-region, multi-service **inventory** scanner
-  with tag filtering (Resource Groups Tagging API path).
+- Today: a read-only multi-region **inventory** scanner covering eight
+  services (ec2, s3, ecs, efs, elb, vpc, rds, autoscaling) with tag
+  filtering (Resource Groups Tagging API path). Releases are automated
+  (release-please + trusted PyPI publishing gated by a manual approval).
 - Next: **`aws-inventory waste`** — find resources still generating
   costs but no longer used. `PRODUCT.md` is the spec of record: the
   `Finding` type, the `SignalProvider` seam, v1 rules, roadmap, and the
@@ -67,17 +69,24 @@ reintroduce them.
     (`/grilling`): walk the decision tree, one question at a time, and
     record the outcome in `PRODUCT.md`'s decision log before writing
     code. This applies even more to features that seem obviously good.
-14. **Two real implementations before an abstraction.** Don't introduce
+14. **Boy-scout rule — never silently swallow a finding.** When work
+    reveals an adjacent problem (a stale doc line, a dead path, a
+    misleading name, a missing test), do not ignore it: fix it in the
+    same PR when it is trivial and the same concern; otherwise say it
+    out loud and queue it (issue, PRODUCT.md backlog, or the roadmap
+    note here) in the same session it was found. For doc staleness
+    specifically, rules 16 and 18 apply.
+15. **Two real implementations before an abstraction.** Don't introduce
     a seam, interface, or config knob for a hypothetical second case.
     Registry dicts over plugin frameworks (`services/registry.py` is the
     house pattern). One adapter is a hypothetical seam; two make it real.
-15. **Docs ship in the same PR as the change.** A change to behaviour,
+16. **Docs ship in the same PR as the change.** A change to behaviour,
     CLI, architecture, or product scope updates every document that
     describes it — README, this file, `PRODUCT.md`, the relevant ADR —
     in the same diff. A doc that contradicts the code is a bug and gets
     triaged like one. (This does not break rule 5: the doc update is
     part of the concern, not a second concern.)
-16. **Engineering decisions land in ADRs.** Every technical decision —
+17. **Engineering decisions land in ADRs.** Every technical decision —
     architecture, domain modelling, language or tooling choice, an
     adopted best practice — gets a dedicated ADR in
     `docs/adr/NNNN-short-slug.md`, written when the decision is made,
@@ -88,12 +97,12 @@ reintroduce them.
     ADRs own engineering decisions (*how* to build it).
     `docs/adr/0001-record-decisions-in-adrs.md` is both the first
     instance and the template.
-17. **Stale instructions are worse than no instructions.** This file
+18. **Stale instructions are worse than no instructions.** This file
     and the ADRs are loaded as context into every AI session; anything
     wrong in them gets confidently repeated. Prune or update them in
     the same PR that invalidates them; delete roadmap/status notes once
     they ship. When a doc and reality disagree, fix the doc first
-    (rule 15), then check what else trusted it.
+    (rule 16), then check what else trusted it.
 
 ## Git rules
 
@@ -155,13 +164,38 @@ reintroduce them.
   resource_arn, optional resource_name) is pinned by
   tests/test_resource_shape.py — changing it is a deliberate act.
 - Shipped: the shared scanning engine (`aws_scanner_lib/engine.py`) —
-  all six scanners run on it; pagination, guarded parallel collection,
-  ordered fan-out, and tag matching live there and nowhere else.
-- Remaining deepening work, in order: a typed `Resource` dataclass at
-  the output seam (replacing the ad-hoc record dicts, then filling in
-  missing resource names); a progress-event seam so rich rendering
-  lives only in cli.py (plus shrinking the logging module and adding
-  CLI-level tests); one shared scan interface over the per-service and
-  tag-scan paths so retries/cancellation/progress apply to both.
-  Check open PRs for live status.
-- Product roadmap for the `waste` verb: `PRODUCT.md` §5.
+  every scanner runs on it; pagination, guarded parallel collection,
+  ordered fan-out, and tag matching live there and nowhere else. Fully
+  declarative scanners are a `Describe` dict + a 3-line function;
+  imperative ones stay plain functions calling the engine helpers.
+- Shipped: the typed record — `aws_scanner_lib/records.py` `Resource`
+  (frozen dataclass) is what every processor constructs and every
+  output consumes; `to_record()` owns serialization. `output_results`
+  takes a required `source` ("services" | "tagging"); the tag scan is a
+  hybrid whose service-shaped sections are declared by the producer
+  (`SERVICE_SHAPED_SECTIONS` in resource_groups_utils) — never guessed
+  from data shape.
+- Test layout: the original six scanners live in
+  tests/test_service_scanners.py; every newer service gets its own
+  tests/test_<service>_scanner.py. The flattened-record contract for
+  every producer is pinned centrally in tests/test_resource_shape.py —
+  a new processor must be added there.
+- Remaining deepening work, in order: fill in missing resource names
+  (ec2 instances and ecs records show raw ids in reports today); unify
+  the six copies of the scan-path predicate (`all_services or tag_key
+  or tag_value`) behind one helper; a progress-event seam so rich
+  rendering lives only in cli.py (plus shrinking the logging module
+  and adding CLI-level tests); one shared scan interface over the
+  per-service and tag-scan paths so retries/cancellation/progress
+  apply to both. Check open PRs for live status.
+
+## Future vision
+
+- The product turn: **`aws-inventory waste`** per `PRODUCT.md` — the
+  `Finding` type and `SignalProvider` registry sit on top of the typed
+  `Resource` and the scanners; the RDS and EFS scanners it needs are
+  already shipped. Roadmap `PRODUCT.md` §5 (state rules + tag drift →
+  Cost Optimization Hub → cost ranking → CloudWatch signals), backlog
+  §6, decisions §7.
+- Optional post-roadmap chore: migrate poetry → uv (decided: not
+  before; CI stays on poetry until then).
