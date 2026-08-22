@@ -78,3 +78,17 @@ ADR chose. Three findings reversed that:
   the release page would carry something PyPI cannot, the draft flow
   earns its complexity, and `force-tag-creation: true` is mandatory with
   it.
+
+## Never do this
+
+**Do not delete a published release or its tag in order to retry.** A
+tag name used by an immutable release is burned permanently: recreating
+it returns `422 tag_name was used by an immutable release`. That survives
+deleting the release, disabling the immutable-releases setting, and even
+deleting and recreating the repository. So a release that shipped without
+artifacts is fixed by publishing to PyPI beside it (decision 5), never by
+recreating the release — a mistake that would cost the version number
+forever.
+
+Editing is narrower than it looks: after publish, only the **title and
+release notes** stay editable. Assets and the tag are frozen.
