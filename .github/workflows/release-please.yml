@@ -56,7 +56,7 @@ jobs:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true' || inputs.publish_tag != ''
     permissions:
-      contents: write # attach assets to, and publish, the draft release
+      contents: read
       id-token: write # sign build provenance attestations
       attestations: write
     env:
@@ -66,9 +66,9 @@ jobs:
       release_tag: ${{ inputs.publish_tag || needs.release-please.outputs.tag_name }}
     steps:
       # The release path builds github.sha — the commit that merged the
-      # release PR, and so the commit release-please released. It
-      # deliberately does not build the tag: whether a draft release creates
-      # its tag up front is undocumented, and this works either way.
+      # release PR, which is exactly what release-please released. Building
+      # the commit rather than the tag keeps this independent of when the
+      # tag ref becomes visible. Only the recovery path resolves a tag.
       - name: Checkout the released commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -111,23 +111,6 @@ jobs:
           name: python-distributions
           path: dist/
           if-no-files-found: error
-
-      # Assets can only be attached while the release is still a draft;
-      # publishing seals it (see docs/adr/0002). Both steps are skipped on
-      # the publish_tag recovery path, whose release is already published
-      # and therefore immutable — attaching there is the 422 that made this
-      # workflow fail in the first place.
-      - name: Attach distributions to the draft release
-        if: needs.release-please.outputs.release_created == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "$release_tag" dist/* --repo "$GITHUB_REPOSITORY"
-
-      - name: Publish the draft release
-        if: needs.release-please.outputs.release_created == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "$release_tag" --draft=false --repo "$GITHUB_REPOSITORY"
 
   # Publishes via OIDC trusted publishing (no API tokens).
   # One-time setup required before the first release:
