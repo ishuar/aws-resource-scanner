@@ -4,7 +4,15 @@ name: Release Please
 on:
   push:
     branches: [main]
+  # Publish an already-released tag to PyPI. Needed because the PyPI job
+  # only runs on the push that creates a release, so a failure anywhere
+  # in the pipeline would otherwise leave a released tag unpublishable.
   workflow_dispatch:
+    inputs:
+      publish_tag:
+        description: "Existing tag to publish to PyPI (e.g. v0.1.0). Leave empty to only run release-please."
+        required: false
+        type: string
 
 # Never cancel an in-flight release run; queue instead.
 concurrency:
@@ -43,19 +51,23 @@ jobs:
           echo "Version: ${{ steps.release.outputs.version }}"
 
   build:
-    name: Build and Attach Python Distributions
+    name: Build Python Distributions
     runs-on: ubuntu-latest
     needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+    if: needs.release-please.outputs.release_created == 'true' || inputs.publish_tag != ''
     permissions:
-      contents: write # upload assets to the GitHub release
+      contents: read
       id-token: write # sign build provenance attestations
       attestations: write
+    env:
+      # Interpolated into env, never into a run script: publish_tag is
+      # user input and would otherwise be a shell-injection vector.
+      release_ref: ${{ inputs.publish_tag || needs.release-please.outputs.tag_name }}
     steps:
       - name: Checkout release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          ref: ${{ inputs.publish_tag || needs.release-please.outputs.tag_name }}
           persist-credentials: false
 
       - name: Set up Python
@@ -69,7 +81,7 @@ jobs:
       - name: Verify tag matches package version
         run: |
           pkg_version="$(poetry version --short)"
-          tag_version="${{ needs.release-please.outputs.version }}"
+          tag_version="${release_ref#v}"
           if [ "$pkg_version" != "$tag_version" ]; then
             echo "::error::pyproject.toml version ($pkg_version) does not match release version ($tag_version)"
             exit 1
@@ -86,10 +98,16 @@ jobs:
         with:
           subject-path: dist/*
 
-      - name: Attach distributions to GitHub release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload '${{ needs.release-please.outputs.tag_name }}' dist/* --repo '${{ github.repository }}'
+      # The attested files themselves are what gets published, so the
+      # attestation describes the artifacts users actually install.
+      # (Immutable releases seal a published release, so these cannot be
+      # attached to the GitHub release — see docs/adr/0002.)
+      - name: Upload distributions for the publish job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: python-distributions
+          path: dist/
+          if-no-files-found: error
 
   # Publishes via OIDC trusted publishing (no API tokens).
   # One-time setup required before the first release:
@@ -106,29 +124,20 @@ jobs:
     name: Publish to PyPI
     runs-on: ubuntu-latest
     needs: [release-please, build]
-    if: needs.release-please.outputs.release_created == 'true'
+    if: needs.release-please.outputs.release_created == 'true' || inputs.publish_tag != ''
     environment:
       name: pypi
       url: https://pypi.org/p/aws-resource-inventory
     permissions:
       id-token: write # OIDC trusted publishing
     steps:
-      - name: Checkout release tag
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Publishes exactly the artifacts the build job attested — never a
+      # second, differently-hashed build of the same source.
+      - name: Download the built distributions
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
-          persist-credentials: false
-
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.13"
-
-      - name: Install poetry
-        run: pipx install poetry
-
-      - name: Build sdist and wheel
-        run: poetry build
+          name: python-distributions
+          path: dist/
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
