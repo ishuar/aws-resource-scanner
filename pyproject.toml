@@ -48,9 +48,15 @@ aws-inventory = "cli:app"
 aws-resource-inventory = "cli:app"
 
 [tool.poetry]
+# cli.py and aws_scanner.py are top-level modules, not packages, so they
+# need explicit entries — without them the wheel installs but the
+# console scripts (`cli:app`) cannot import. The wheel smoke test in
+# .github/workflows/ci.yml is what catches that.
 packages = [
     {include = "aws_scanner_lib"},
     {include = "services"},
+    {include = "cli.py"},
+    {include = "aws_scanner.py"},
 ]
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.0"
