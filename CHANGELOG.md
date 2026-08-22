@@ -2,6 +2,21 @@
 
 ## [0.1.1](https://github.com/ishuar/aws-resource-inventory/compare/v0.1.0...v0.1.1) (2026-08-22)
 
+> [!IMPORTANT]
+> **0.1.0 was published with a broken wheel.** `cli.py` was left out of the
+> distribution, so the installed `aws-inventory` command died immediately with
+> `ModuleNotFoundError: No module named 'cli'`. **0.1.1 is the first working
+> release**; 0.1.0 is yanked on PyPI.
+>
+> ```bash
+> uv tool install aws-resource-inventory   # or: pipx install aws-resource-inventory
+> aws-inventory --help
+> ```
+>
+> Module paths also moved under a single `aws_resource_inventory/` package. That
+> only affects direct imports, and since 0.1.0 never ran, nothing depended on the
+> old paths.
+
 
 ### 🐞 Bug Fixes
 
