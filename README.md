@@ -30,7 +30,7 @@ A comprehensive AWS multi-service scanner with tag-based filtering, parallel pro
 | **RDS**          | Relational Database Service                                                                                             | DB Instances, DB Clusters, DB Snapshots, Aurora Cluster Snapshots |
 | **EFS**          | Elastic File System                                                                                                     | File Systems (with size and mount-target details)                 |
 
-> **📚 Architecture Details**: For detailed information about the scanning architecture and service implementation patterns, see [Architecture Documentation](docs/aws-inventory-book.md).
+> **📚 Architecture Details**: For detailed information about the scanning architecture and service implementation patterns, see [Architecture Documentation](docs/Architecture.md).
 
 ## 📋 Prerequisites
 
@@ -49,6 +49,45 @@ Before installing the AWS Resource Inventory, ensure you have the following depe
   - AWS CLI (`aws configure`)
   - Environment variables
   - IAM roles (for EC2/containers)
+
+### Required IAM Permissions
+
+The scanner is read-only. This policy covers every API call it makes —
+the eight service scanners, the credential check (`sts`), and the tag
+scan (`tag:GetResources`, only exercised with `--tag-key`/`--tag-value`/
+`--all-services`):
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AwsResourceInventoryReadOnly",
+            "Effect": "Allow",
+            "Action": [
+                "sts:GetCallerIdentity",
+                "ec2:Describe*",
+                "s3:ListAllMyBuckets",
+                "s3:GetBucketLocation",
+                "s3:GetBucketTagging",
+                "ecs:List*",
+                "ecs:Describe*",
+                "elasticloadbalancing:Describe*",
+                "elasticfilesystem:Describe*",
+                "rds:Describe*",
+                "autoscaling:Describe*",
+                "tag:GetResources"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+
+> [!NOTE]
+> `ec2:Describe*` also covers the VPC scanner and Auto Scaling launch
+> templates — both use the EC2 API. The AWS-managed `ReadOnlyAccess`
+> policy works too if you prefer not to maintain a custom one.
 
 ## 🚀 **Installation**
 
@@ -330,7 +369,6 @@ aws-resource-inventory/
 ├── docs/                        # Documentation
 │   ├── adr/                     # Architecture decision records
 │   ├── Architecture.md          # System architecture and design patterns
-│   ├── aws-inventory-book.md    # In-depth guide
 │   └── LOGGING_ARCHITECTURE.md  # Logging system documentation
 │
 └── tests/                       # Test suite — runs with ZERO AWS credentials (moto)
@@ -448,7 +486,6 @@ poetry run aws-inventory --verbose --log-file audit.log scan --debug \
 The project includes comprehensive documentation covering all aspects of the system:
 
 - [Architecture Documentation](docs/Architecture.md) — system design, component interactions, and patterns
-- [In-Depth Guide](docs/aws-inventory-book.md) — comprehensive walk-through of the scanner
 - [Architecture Decision Records](docs/adr/) — why things are built the way they are
 - [Shell Completion](docs/SHELL_COMPLETION.md) — tab-completion setup for the CLI
 - [Logging Architecture](docs/LOGGING_ARCHITECTURE.md) — the logging system: API tracing, configuration, integration patterns, troubleshooting, performance
