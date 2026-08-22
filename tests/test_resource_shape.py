@@ -19,6 +19,7 @@ from services.autoscaling_service import process_autoscaling_output
 from services.ec2_service import process_ec2_output
 from services.ecs_service import process_ecs_output
 from services.elb_service import process_elb_output
+from services.rds_service import process_rds_output
 from services.s3_service import process_s3_output
 from services.vpc_service import process_vpc_output
 
@@ -105,6 +106,26 @@ SERVICE_FIXTURES: dict[str, dict[str, Any]] = {
             }
         ],
     },
+    "rds": {
+        "db_instances": [
+            {
+                "DBInstanceIdentifier": "app-db",
+                "DBInstanceArn": "arn:aws:rds:eu-central-1:1:db:app-db",
+            }
+        ],
+        "db_clusters": [
+            {
+                "DBClusterIdentifier": "app-cluster",
+                "DBClusterArn": "arn:aws:rds:eu-central-1:1:cluster:app-cluster",
+            }
+        ],
+        "db_snapshots": [
+            {
+                "DBSnapshotIdentifier": "app-db-snap",
+                "DBSnapshotArn": "arn:aws:rds:eu-central-1:1:snapshot:app-db-snap",
+            }
+        ],
+    },
     "autoscaling": {
         "auto_scaling_groups": [
             {
@@ -127,6 +148,7 @@ SERVICE_FIXTURES: dict[str, dict[str, Any]] = {
 PROCESSORS: dict[str, Callable[..., None]] = {
     "ec2": process_ec2_output,
     "s3": process_s3_output,
+    "rds": process_rds_output,
     "vpc": process_vpc_output,
     "elb": process_elb_output,
     "ecs": process_ecs_output,
@@ -198,6 +220,11 @@ def test_resource_types_are_pinned_per_producer() -> None:
             "autoscaling:launch_configuration",
             "autoscaling:launch_template",
         ],
+        "rds": [
+            "rds:db_cluster",
+            "rds:db_instance",
+            "rds:db_snapshot",
+        ],
     }
 
 
@@ -215,6 +242,7 @@ def test_resource_name_is_optional_and_that_is_load_bearing() -> None:
     assert all("resource_name" in r for r in flatten("vpc"))
     assert all("resource_name" in r for r in flatten("elb"))
     assert all("resource_name" in r for r in flatten("autoscaling"))
+    assert all("resource_name" in r for r in flatten("rds"))
 
 
 def test_identity_fields_per_producer() -> None:

@@ -31,7 +31,7 @@ A comprehensive AWS multi-service scanner with tag-based filtering, parallel pro
 - **Rich Error Display**: Enhanced error formatting with caller context
 
 ### ⚙️ Advanced Configuration
-- **Service Selection without Tags**: Choose specific services to scan. Currently supported [`ec2`, `vpc` , `elb`, `autoscaling`,`s3`, `ecs`]
+- **Service Selection without Tags**: Choose specific services to scan. Currently supported [`ec2`, `vpc`, `elb`, `autoscaling`, `s3`, `ecs`, `rds`]
 - **Region Customization**: Scan specific regions or use default region sets
 - **Worker Configuration**: Configurable parallel workers for optimal performance
 - **Dry Run Mode**: Preview scan operations without execution

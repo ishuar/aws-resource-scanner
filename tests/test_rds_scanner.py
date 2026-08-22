@@ -4,14 +4,13 @@ RDS scanner seam: services.rds_service against a fake AWS (moto).
 Functional tests: create real-shaped RDS resources in moto, run the
 scanner through its public interface (session, region), and pin the
 result-key vocabulary, the resources found, and the raw fields the
-future waste rules need (DBInstanceStatus, storage). The processor test
-pins the flattened Resource vocabulary via .to_record().
+future waste rules need (DBInstanceStatus, storage). The flattened Resource
+vocabulary is pinned centrally in tests/test_resource_shape.py.
 """
 
 from typing import Any
 
-from aws_scanner_lib.records import Resource
-from services.rds_service import process_rds_output, scan_rds
+from services.rds_service import scan_rds
 
 REGION = "eu-central-1"
 
@@ -88,62 +87,3 @@ class TestScanRds:
     ) -> None:
         result = scan_rds(aws_session, REGION)
         assert result == {"db_instances": [], "db_clusters": [], "db_snapshots": []}
-
-
-class TestProcessRdsOutput:
-    def test_flattens_instances_clusters_and_snapshots(self) -> None:
-        arn_prefix = f"arn:aws:rds:{REGION}:123456789012"
-        service_data = {
-            "db_instances": [
-                {
-                    "DBInstanceIdentifier": "app-db",
-                    "DBInstanceArn": f"{arn_prefix}:db:app-db",
-                    "DBInstanceStatus": "stopped",
-                    "AllocatedStorage": 20,
-                }
-            ],
-            "db_clusters": [
-                {
-                    "DBClusterIdentifier": "app-cluster",
-                    "DBClusterArn": f"{arn_prefix}:cluster:app-cluster",
-                }
-            ],
-            "db_snapshots": [
-                {
-                    "DBSnapshotIdentifier": "app-db-manual-snap",
-                    "DBSnapshotArn": f"{arn_prefix}:snapshot:app-db-manual-snap",
-                }
-            ],
-        }
-
-        flattened: list[Resource] = []
-        process_rds_output(service_data, REGION, flattened)
-
-        assert [r.to_record() for r in flattened] == [
-            {
-                "region": REGION,
-                "resource_name": "app-db",
-                "resource_type": "rds:db_instance",
-                "resource_id": "app-db",
-                "resource_arn": f"{arn_prefix}:db:app-db",
-            },
-            {
-                "region": REGION,
-                "resource_name": "app-cluster",
-                "resource_type": "rds:db_cluster",
-                "resource_id": "app-cluster",
-                "resource_arn": f"{arn_prefix}:cluster:app-cluster",
-            },
-            {
-                "region": REGION,
-                "resource_name": "app-db-manual-snap",
-                "resource_type": "rds:db_snapshot",
-                "resource_id": "app-db-manual-snap",
-                "resource_arn": f"{arn_prefix}:snapshot:app-db-manual-snap",
-            },
-        ]
-
-    def test_empty_service_data_appends_nothing(self) -> None:
-        flattened: list[Resource] = []
-        process_rds_output({}, REGION, flattened)
-        assert flattened == []
