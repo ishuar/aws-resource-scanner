@@ -1,0 +1,201 @@
+# CLAUDE.md
+
+**aws-resource-inventory** — Python CLI that inventories AWS resources
+across regions/services (boto3, typer, rich). Entry points:
+`aws-inventory`, `aws-resource-inventory`. The old `aws-scanner` and
+`aws-scan` commands were removed before first release — do not
+reintroduce them.
+
+## Product context
+
+- Today: a read-only multi-region **inventory** scanner covering eight
+  services (ec2, s3, ecs, efs, elb, vpc, rds, autoscaling) with tag
+  filtering (Resource Groups Tagging API path). Releases are automated
+  (release-please + trusted PyPI publishing gated by a manual approval).
+- Next: **`aws-inventory waste`** — find resources still generating
+  costs but no longer used. `PRODUCT.md` is the spec of record: the
+  `Finding` type, the `SignalProvider` seam, v1 rules, roadmap, and the
+  decision log. Product guarantees (non-negotiable): read-only forever,
+  zero setup, evidence with honest confidence levels.
+
+## Non-negotiable engineering rules
+
+1. **Best practice over workaround — always.** Fix the cause, not the
+   symptom. If a tool's default is wrong for us, configure it explicitly
+   and say why in a comment; never patch around it silently. Transitional
+   measures must be named as such and completed (the minimal ruff
+   `select` pin was transitional; the curated rule set completed it).
+2. **Explicit over implicit configuration.** Tool behaviour must never
+   change as a side effect of a version bump. Example: `ruff.lint.select`
+   is pinned in pyproject because ruff's built-in defaults drift between
+   releases. Expanding a rule set is its own deliberate PR.
+3. **Test-first for every behaviour change.** Write the failing test,
+   confirm it is red, then fix. Update only the tests that pin the
+   behaviour being deliberately changed.
+4. **Pure refactors ship with zero test edits.** If a refactor needs a
+   test change, it is not a refactor — split the PR.
+5. **One concern per PR.** Version bumps, behaviour changes, refactors,
+   and lint migrations never share a diff.
+6. **PR titles are release notes.** Squash-merge titles land verbatim in
+   the release-please changelog, so a title must describe the change in
+   words any user understands — never internal codenames or session
+   shorthand ("candidate 3", "part 1 of 3", "the wave"). Same for PR
+   descriptions: what changed, why, and how it was verified.
+7. **Don't hand-roll what the platform provides.** botocore's adaptive
+   retry mode owns transient-error retries (the old retry_with_backoff
+   wrapper is deleted — do not reintroduce one). Same instinct applies to
+   pagination (use paginators, always) and diffing.
+8. **Unused features get deleted, not fixed.** `--compare`/deepdiff were
+   removed after proving zero successful executions (the locked deepdiff
+   couldn't even be imported). Apply the deletion test with evidence
+   before investing in a fix.
+9. **Every scanning client comes from
+   `aws_scanner_lib.clients.get_scan_client`** — never `session.client()`
+   directly. It owns pool size, timeouts, adaptive retries, the
+   creation lock (boto3 sessions are not thread-safe for client
+   creation), and the `aws-resource-inventory` user-agent stamp.
+10. **Verify merges against real AWS**: `scripts/e2e-diff.sh` (no args)
+   fetches origin and compares `origin/main~1` vs `origin/main` scan
+   output. Run it after merging anything that touches scan behaviour;
+   add `--tag-key/--tag-value` to cover the Resource Groups tag path.
+11. **Squash merges + stacked PRs**: after a squash lands, rebase any
+    dependent branch onto main (`git rebase --onto main <old-base>`).
+12. **Keep it simple; readable beats clever.** The simplest design that
+    works wins. Code a maintainer can't follow in one read gets
+    simplified, not documented around. Complexity must buy something
+    measurable, and the burden of proof is on the complexity.
+13. **Features get grilled before they get built.** "Makes sense" is not
+    a spec. Every new feature starts with a grilling session
+    (`/grilling`): walk the decision tree, one question at a time, and
+    record the outcome in `PRODUCT.md`'s decision log before writing
+    code. This applies even more to features that seem obviously good.
+14. **Boy-scout rule — never silently swallow a finding.** When work
+    reveals an adjacent problem (a stale doc line, a dead path, a
+    misleading name, a missing test), do not ignore it: fix it in the
+    same PR when it is trivial and the same concern; otherwise say it
+    out loud and queue it (issue, PRODUCT.md backlog, or the roadmap
+    note here) in the same session it was found. For doc staleness
+    specifically, rules 16 and 18 apply.
+15. **Two real implementations before an abstraction.** Don't introduce
+    a seam, interface, or config knob for a hypothetical second case.
+    Registry dicts over plugin frameworks (`services/registry.py` is the
+    house pattern). One adapter is a hypothetical seam; two make it real.
+16. **Docs ship in the same PR as the change.** A change to behaviour,
+    CLI, architecture, or product scope updates every document that
+    describes it — README, this file, `PRODUCT.md`, the relevant ADR —
+    in the same diff. A doc that contradicts the code is a bug and gets
+    triaged like one. (This does not break rule 5: the doc update is
+    part of the concern, not a second concern.)
+17. **Engineering decisions land in ADRs.** Every technical decision —
+    architecture, domain modelling, language or tooling choice, an
+    adopted best practice — gets a dedicated ADR in
+    `docs/adr/NNNN-short-slug.md`, written when the decision is made,
+    not reconstructed later. Format: Status / Context / Decision /
+    Consequences. Superseded ADRs are marked superseded and kept —
+    the history is the point. Division of record: `PRODUCT.md`'s
+    decision log owns product decisions (*what* to build, rule 13);
+    ADRs own engineering decisions (*how* to build it).
+    `docs/adr/0001-record-decisions-in-adrs.md` is both the first
+    instance and the template.
+18. **Stale instructions are worse than no instructions.** This file
+    and the ADRs are loaded as context into every AI session; anything
+    wrong in them gets confidently repeated. Prune or update them in
+    the same PR that invalidates them; delete roadmap/status notes once
+    they ship. When a doc and reality disagree, fix the doc first
+    (rule 16), then check what else trusted it.
+
+## Git rules
+
+- **Never commit or push to `main` — no exceptions.** This includes
+  indirect writes such as `gh api PUT /contents` or any other API call
+  that creates a commit on `main`.
+- All changes go through a new branch (create one with `git switch -c`
+  or a `git worktree`) and a pull request into `main`.
+
+## Python style
+
+- Type hints on every public function; `from __future__` not needed
+  (3.10+). Frozen `@dataclass` for domain types (`ServiceRegistration` today;
+  `Finding` arrives with the waste verb, see PRODUCT.md) — not dicts,
+  not classes with behaviour.
+- Pure functions for logic (rules, transforms); side effects (AWS calls,
+  console output, cache) stay at the edges. Return results, don't mutate
+  arguments.
+- No ABCs, metaclasses, or deep class hierarchies unless two concrete
+  implementations already demand them (rule 14).
+- stdlib and existing dependencies first. A new runtime dependency is
+  its own justified PR (what it buys, why stdlib can't).
+- New modules mirror the existing layout: one service = one
+  `services/<name>_service.py` + one registry entry; shared logic lives
+  in `aws_scanner_lib`.
+- Comments state constraints the code can't show — never narrate what
+  the next line does.
+
+## Documentation style
+
+- All documentation — README, `PRODUCT.md`, ADRs, and this file — is
+  written using the **i-have-adhd** output style
+  (`i-have-adhd@i-have-adhd` plugin skill): lead with the action,
+  numbered steps with one bounded action each, no preamble, no closing
+  filler, lists capped at 5. Use the skill both when generating docs
+  and as the checklist when reviewing them.
+
+## Testing
+
+- The suite runs with **zero AWS credentials**: moto fakes AWS, conftest
+  forces fake creds and redirects the pickle cache per-test.
+- Tests are **characterization tests at seams** (public interfaces):
+  scan_service/scan_region, the flattened resource-record shape, output
+  formats, cache round-trips, each scanner against moto. Don't test
+  internals; don't stub the dispatch mechanism.
+- Waste rules (when built) are pure functions — test them with fixture
+  dicts, no moto needed.
+- CI (`.github/workflows/ci.yml`) is the merge gate; Codecov enforces
+  80% patch coverage (project check tolerates 1% refactor wobble).
+
+## Architecture notes
+
+- Packages: `aws_scanner_lib` (engine, orchestration, cache, outputs,
+  clients, logging) and `services` (per-AWS-service scanners +
+  `services/registry.py`, the single source of truth mapping service
+  name → scanner + output processor).
+- Adding a service = one module + one `SERVICES` registry entry.
+- The flattened record contract (region/resource_type/resource_id/
+  resource_arn, optional resource_name) is pinned by
+  tests/test_resource_shape.py — changing it is a deliberate act.
+- Shipped: the shared scanning engine (`aws_scanner_lib/engine.py`) —
+  every scanner runs on it; pagination, guarded parallel collection,
+  ordered fan-out, and tag matching live there and nowhere else. Fully
+  declarative scanners are a `Describe` dict + a 3-line function;
+  imperative ones stay plain functions calling the engine helpers.
+- Shipped: the typed record — `aws_scanner_lib/records.py` `Resource`
+  (frozen dataclass) is what every processor constructs and every
+  output consumes; `to_record()` owns serialization. `output_results`
+  takes a required `source` ("services" | "tagging"); the tag scan is a
+  hybrid whose service-shaped sections are declared by the producer
+  (`SERVICE_SHAPED_SECTIONS` in resource_groups_utils) — never guessed
+  from data shape.
+- Test layout: the original six scanners live in
+  tests/test_service_scanners.py; every newer service gets its own
+  tests/test_<service>_scanner.py. The flattened-record contract for
+  every producer is pinned centrally in tests/test_resource_shape.py —
+  a new processor must be added there.
+- Remaining deepening work, in order: fill in missing resource names
+  (ec2 instances and ecs records show raw ids in reports today); unify
+  the six copies of the scan-path predicate (`all_services or tag_key
+  or tag_value`) behind one helper; a progress-event seam so rich
+  rendering lives only in cli.py (plus shrinking the logging module
+  and adding CLI-level tests); one shared scan interface over the
+  per-service and tag-scan paths so retries/cancellation/progress
+  apply to both. Check open PRs for live status.
+
+## Future vision
+
+- The product turn: **`aws-inventory waste`** per `PRODUCT.md` — the
+  `Finding` type and `SignalProvider` registry sit on top of the typed
+  `Resource` and the scanners; the RDS and EFS scanners it needs are
+  already shipped. Roadmap `PRODUCT.md` §5 (state rules + tag drift →
+  Cost Optimization Hub → cost ranking → CloudWatch signals), backlog
+  §6, decisions §7.
+- Optional post-roadmap chore: migrate poetry → uv (decided: not
+  before; CI stays on poetry until then).
