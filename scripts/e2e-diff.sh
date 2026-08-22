@@ -115,6 +115,17 @@ run_scan() { # $1 = worktree, $2 = output file
   #
   # Hence the resolved interpreter rather than `poetry run`: each worktree
   # has its own pyproject.toml, so poetry would target the wrong venv.
+  #
+  # The guard is not paranoia. The venv carries an editable install of this
+  # project (`aws_resource_inventory.pth`), so when a worktree does NOT
+  # provide the package, the import falls through to THIS checkout's code
+  # and the run reports "identical" after comparing main against itself.
+  # Refs older than the ADR-0004 layout hit exactly that, so refuse them.
+  [[ -f "$1/aws_resource_inventory/cli.py" ]] || fail \
+    "worktree $1 has no aws_resource_inventory/ — refs predating the
+     ADR-0004 package layout cannot be compared; the venv's editable
+     install would silently substitute the current checkout's code."
+
   ( cd "$1" && "$VENV_PYTHON" -m aws_resource_inventory.cli \
       "${SCAN_ARGS[@]}" -o "$2" ) >"$2.log" 2>&1 \
     || { echo "ERROR: scan failed for $1 — log follows" >&2; tail -30 "$2.log" >&2; exit 2; }

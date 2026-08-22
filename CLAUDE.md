@@ -58,6 +58,9 @@ reintroduce them.
    fetches origin and compares `origin/main~1` vs `origin/main` scan
    output. Run it after merging anything that touches scan behaviour;
    add `--tag-key/--tag-value` to cover the Resource Groups tag path.
+   Refs older than ADR-0004's package layout are refused outright: the
+   venv's editable install would otherwise substitute the current
+   checkout and report a false "identical".
 11. **Squash merges + stacked PRs**: after a squash lands, rebase any
     dependent branch onto main (`git rebase --onto main <old-base>`).
 12. **Keep it simple; readable beats clever.** The simplest design that
