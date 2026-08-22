@@ -105,7 +105,7 @@ def main(
     A comprehensive tool for scanning AWS resources across multiple services and regions
     with advanced filtering, caching, and output capabilities.
     Features:
-    • Multi-service scanning (EC2, S3, VPC, ECS, ELB, Auto Scaling)
+    • Multi-service scanning (EC2, S3, ECS, EFS, ELB, VPC, RDS, Auto Scaling)
     • Cross-region resource discovery
     • Tag-based filtering with Resource Groups API
     • Intelligent caching system (10-minute TTL)
@@ -121,13 +121,22 @@ def main(
     app_verbose = verbose
 
 
+def complete_service_name(incomplete: str) -> list[str]:
+    """Tab-completion values for --service: the registered service names."""
+    return [name for name in SUPPORTED_SERVICES if name.startswith(incomplete)]
+
+
 @app.command(name="scan")
 def scan_command(
     regions: str | None = typer.Option(
         None, "--regions", "-r", help="Comma-separated AWS regions to scan"
     ),
     services: list[str] = typer.Option(
-        SUPPORTED_SERVICES, "--service", "-s", help="AWS services to scan"
+        SUPPORTED_SERVICES,
+        "--service",
+        "-s",
+        help="AWS services to scan",
+        autocompletion=complete_service_name,
     ),
     profile: str | None = typer.Option(
         aws_profile, "--profile", "-p", help="AWS profile to use"

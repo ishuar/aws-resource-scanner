@@ -44,6 +44,8 @@ poetry run aws-inventory --show-completion >> ~/.config/fish/completions/aws-inv
 - Commands: `aws-inventory <TAB>` → `scan`
 - Option names: `aws-inventory scan --<TAB>` → `--regions`, `--service`,
   `--profile`, `--tag-key`, …
+- Service names: `aws-inventory scan --service <TAB>` → `ec2`, `s3`,
+  `ecs`, `efs`, `elb`, `vpc`, `rds`, `autoscaling`
 
 ## Verification
 
