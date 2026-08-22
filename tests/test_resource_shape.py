@@ -14,6 +14,7 @@ from typing import Any
 import pytest
 
 from aws_scanner_lib.outputs import process_generic_service_output
+from aws_scanner_lib.records import Resource
 from services.autoscaling_service import process_autoscaling_output
 from services.ec2_service import process_ec2_output
 from services.ecs_service import process_ecs_output
@@ -134,9 +135,9 @@ PROCESSORS: dict[str, Callable[..., None]] = {
 
 
 def flatten(service: str) -> list[dict[str, Any]]:
-    records: list[dict[str, Any]] = []
-    PROCESSORS[service](SERVICE_FIXTURES[service], REGION, records)
-    return records
+    resources: list[Resource] = []
+    PROCESSORS[service](SERVICE_FIXTURES[service], REGION, resources)
+    return [resource.to_record() for resource in resources]
 
 
 @pytest.mark.parametrize("service", sorted(PROCESSORS))
@@ -250,10 +251,10 @@ def test_generic_processor_flattens_resource_groups_records() -> None:
             },
         ]
     }
-    records: list[dict[str, Any]] = []
-    process_generic_service_output(service_data, REGION, records)
+    resources: list[Resource] = []
+    process_generic_service_output(service_data, REGION, resources)
 
-    assert records == [
+    assert [resource.to_record() for resource in resources] == [
         {
             "region": REGION,
             "resource_type": "ec2:instance",

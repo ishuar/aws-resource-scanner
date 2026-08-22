@@ -15,6 +15,7 @@ from typing import Any
 
 from aws_scanner_lib.clients import get_scan_client
 from aws_scanner_lib.engine import Describe, ScanResult, scan_keyed
+from aws_scanner_lib.records import Resource
 
 
 def _instances_from(page: dict[str, Any]) -> list[dict[str, Any]]:
@@ -45,7 +46,7 @@ def scan_ec2(session: Any, region: str) -> ScanResult:
 
 
 def process_ec2_output(
-    service_data: dict[str, Any], region: str, flattened_resources: list[dict[str, Any]]
+    service_data: dict[str, Any], region: str, flattened_resources: list[Resource]
 ) -> None:
     """Process EC2 scan results for output formatting."""
     # EC2 Instances
@@ -61,12 +62,12 @@ def process_ec2_output(
             instance_name = instance_id
 
         flattened_resources.append(
-            {
-                "region": region,
-                "resource_type": "ec2:instance",  # Unified format: service:type
-                "resource_id": instance_id,
-                "resource_arn": "N/A",  # Instances don't have ARNs in AWS API
-            }
+            Resource(
+                region=region,
+                resource_type="ec2:instance",  # Unified format: service:type
+                resource_id=instance_id,
+                resource_arn="N/A",  # Instances don't have ARNs in AWS API
+            )
         )
 
     # EBS Volumes
@@ -82,13 +83,13 @@ def process_ec2_output(
             volume_name = volume_id
 
         flattened_resources.append(
-            {
-                "region": region,
-                "resource_name": volume_name,
-                "resource_type": "ec2:volume",
-                "resource_id": volume_id,
-                "resource_arn": "N/A",  # Volumes don't have ARNs in AWS API
-            }
+            Resource(
+                region=region,
+                resource_name=volume_name,
+                resource_type="ec2:volume",
+                resource_id=volume_id,
+                resource_arn="N/A",  # Volumes don't have ARNs in AWS API
+            )
         )
 
     # Security Groups
@@ -97,13 +98,13 @@ def process_ec2_output(
         sg_name = sg.get("GroupName", sg_id)
 
         flattened_resources.append(
-            {
-                "region": region,
-                "resource_name": sg_name,
-                "resource_type": "ec2:security_group",
-                "resource_id": sg_id,
-                "resource_arn": "N/A",  # Security groups don't have ARNs in AWS API
-            }
+            Resource(
+                region=region,
+                resource_name=sg_name,
+                resource_type="ec2:security_group",
+                resource_id=sg_id,
+                resource_arn="N/A",  # Security groups don't have ARNs in AWS API
+            )
         )
 
     # AMIs
@@ -112,13 +113,13 @@ def process_ec2_output(
         ami_name = ami.get("Name", ami_id)
 
         flattened_resources.append(
-            {
-                "region": region,
-                "resource_name": ami_name,
-                "resource_type": "ec2:ami",
-                "resource_id": ami_id,
-                "resource_arn": "N/A",  # AMIs don't have ARNs in AWS API
-            }
+            Resource(
+                region=region,
+                resource_name=ami_name,
+                resource_type="ec2:ami",
+                resource_id=ami_id,
+                resource_arn="N/A",  # AMIs don't have ARNs in AWS API
+            )
         )
 
     # Snapshots
@@ -127,11 +128,11 @@ def process_ec2_output(
         snapshot_name = snapshot.get("Description", snapshot_id)
 
         flattened_resources.append(
-            {
-                "region": region,
-                "resource_name": snapshot_name,
-                "resource_type": "ec2:snapshot",
-                "resource_id": snapshot_id,
-                "resource_arn": "N/A",  # Snapshots don't have ARNs in AWS API
-            }
+            Resource(
+                region=region,
+                resource_name=snapshot_name,
+                resource_type="ec2:snapshot",
+                resource_id=snapshot_id,
+                resource_arn="N/A",  # Snapshots don't have ARNs in AWS API
+            )
         )

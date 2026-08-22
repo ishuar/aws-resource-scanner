@@ -22,6 +22,7 @@ from aws_scanner_lib.engine import (
     run_parallel,
 )
 from aws_scanner_lib.logging import get_logger
+from aws_scanner_lib.records import Resource
 
 logger = get_logger()
 
@@ -70,18 +71,18 @@ def scan_s3(session: Any, region: str) -> ScanResult:
 
 
 def process_s3_output(
-    service_data: dict[str, Any], region: str, flattened_resources: list[dict[str, Any]]
+    service_data: dict[str, Any], region: str, flattened_resources: list[Resource]
 ) -> None:
     """Process S3 scan results for output formatting."""
     for bucket in service_data.get("buckets", []):
         bucket_name = bucket.get("Name", "N/A")
 
         flattened_resources.append(
-            {
-                "region": region,
-                "resource_name": bucket_name,
-                "resource_type": "s3:bucket",
-                "resource_id": bucket_name,
-                "resource_arn": f"arn:aws:s3:::{bucket_name}",
-            }
+            Resource(
+                region=region,
+                resource_name=bucket_name,
+                resource_type="s3:bucket",
+                resource_id=bucket_name,
+                resource_arn=f"arn:aws:s3:::{bucket_name}",
+            )
         )

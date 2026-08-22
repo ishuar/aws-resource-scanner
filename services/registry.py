@@ -15,6 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from aws_scanner_lib.records import Resource
 from services.autoscaling_service import process_autoscaling_output, scan_autoscaling
 from services.ec2_service import process_ec2_output, scan_ec2
 from services.ecs_service import process_ecs_output, scan_ecs
@@ -25,7 +26,7 @@ from services.vpc_service import process_vpc_output, scan_vpc
 # (session, region[, tag_key, tag_value]) -> {resource_key: [raw boto3 dicts]}
 ScanFunc = Callable[..., dict[str, Any]]
 # (service_data, region, flattened_resources) -> None (appends in place)
-ProcessOutputFunc = Callable[[dict[str, Any], str, list[dict[str, Any]]], None]
+ProcessOutputFunc = Callable[[dict[str, Any], str, list[Resource]], None]
 
 
 @dataclass(frozen=True)
