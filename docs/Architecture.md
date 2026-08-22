@@ -1,33 +1,88 @@
-Current Architecture:
-CLI (cli.py): Defines --all-services flag and --tag-key/--tag-value options
-Main orchestrator (aws_scanner.py):
-Decides which scanning method to use based on all_services flag or presence of tags
-If all_services=True OR tags are provided → calls scan_all_services_with_tags()
-Otherwise → uses traditional service-specific scanning
-Wrapper function (scan.py): scan_all_services_with_tags()
-This is just a thin wrapper that adds caching and error handling
-It delegates the actual work to resource_groups_utils.scan_all_tagged_resources()
-Actual implementation (resource_groups_utils.py): scan_all_tagged_resources()
-This contains the real logic using AWS Resource Groups Tagging API
-Analysis:
-The scan_all_services_with_tags() function in scan.py is essential and cannot be deleted because:
+# Architecture
 
-It's actively used by aws_scanner.py when --all-services flag is used or tags are provided
-It provides important functionality:
-Caching logic (checking cache, storing results)
-Error handling with proper return format
-Consistent return signature that matches scan_region() (returns tuple with region, results, duration)
-Progress tracking integration (compatible with the main scanning flow)
-The function in scan.py acts as an adapter/wrapper that:
+How `aws-inventory` turns one CLI command into a resource report. Read
+this top to bottom once; each section is short.
 
-Handles caching (which resource_groups_utils.py doesn't do)
-Provides consistent error handling and logging
-Returns data in the exact format expected by the main scanning orchestrator
-Maintains the same function signature as scan_region() for compatibility
-Conclusion:
-No, we should NOT delete scan_all_services_with_tags() from scan.py. It's a critical part of the architecture that provides the interface between the main scanning orchestrator and the Resource Groups API implementation. The actual AWS API calls are in resource_groups_utils.py, but the wrapper in scan.py provides essential services like caching, error handling, and format compatibility.
+## How a scan flows
 
-This is a good example of separation of concerns:
+```mermaid
+flowchart TD
+    CLI["cli.py — parses flags, validates AWS credentials"] --> P["aws_scanner.py — perform_scan: one thread per region"]
+    P -->|no tags| R["scan.py — scan_region: one thread per service"]
+    P -->|"--tag-key / --tag-value / --all-services"| T["scan.py — scan_all_services_with_tags"]
+    R --> REG["services/registry.py — service name → scanner"]
+    REG --> SVC["services/*_service.py — one scanner per AWS service"]
+    T --> RG["resource_groups_utils.py — Resource Groups Tagging API + Auto Scaling merge"]
+    SVC --> ENG["aws_scanner_lib/engine.py — pagination, concurrency, error policy"]
+    ENG --> CL["aws_scanner_lib/clients.py — the only boto3 client factory"]
+    RG --> CL
+    R --> OUT["outputs.py — Resource records → table / JSON / Markdown"]
+    T --> OUT
+```
 
-resource_groups_utils.py = Pure AWS API logic
-scan.py = Orchestration, caching, and interface compatibility
+Two paths, chosen by your flags:
+
+1. No tag flags: every requested service is scanned with its own
+   describe calls (the per-service path).
+2. Any of `--tag-key`, `--tag-value`, `--all-services`: the Resource
+   Groups Tagging API finds tagged resources across 100+ services (the
+   tag path). Auto Scaling is not covered by that API, so its dedicated
+   scanner runs too and the results are merged.
+
+## The pieces
+
+| Module | Job | The one fact to remember |
+|---|---|---|
+| `cli.py` | Flags, credential check, progress display | `--verbose`/`--log-file` are global: they go before `scan` |
+| `aws_scanner.py` | Fan out regions on threads | Picks per-service vs tag path |
+| `aws_scanner_lib/scan.py` | Fan out services per region; caching | Results cached 10 min per (region, service, tags) |
+| `services/registry.py` | Service name → scanner + output processor | Adding a service is one entry here |
+| `services/*_service.py` | One scanner per AWS service | Declarative ones are a `Describe` dict + 3-line function |
+| `aws_scanner_lib/engine.py` | Pagination, parallel collection, error guard, tag matching | Result always has exactly the requested keys; AWS errors degrade a key to `[]` with a warning, other errors surface |
+| `aws_scanner_lib/clients.py` | Builds every boto3 client | Connection pool 50, adaptive retries, thread-safe creation |
+| `aws_scanner_lib/records.py` | `Resource` — the typed record | Malformed records fail at construction, not at report time |
+| `aws_scanner_lib/outputs.py` | Records → table / JSON / Markdown | Caller states the scan path via `source=` — never guessed |
+| `aws_scanner_lib/cache.py` | Pickle cache with 10-min TTL | Best-effort: any cache failure is just a miss |
+
+## The data shape
+
+Every scanner returns `{result_key: [raw boto3 dicts]}` (for example
+`{"vpcs": [...], "subnets": [...]}`). Output processors turn those into
+`Resource` records — region, resource_type, resource_id, resource_arn,
+optional resource_name — which all three output formats consume.
+
+One subtlety: tag-path results are a hybrid. Most sections are Tagging
+API shaped, but the merged Auto Scaling section carries raw service
+dicts. The producer declares this (`SERVICE_SHAPED_SECTIONS` in
+`resource_groups_utils.py`); the output layer routes those sections
+through their registered processors instead of the generic one.
+
+## Design rules that shaped this
+
+1. The engine is a library the scanners call — not a framework that
+   calls the scanners. Complicated scanners stay ordinary functions you
+   can read top to bottom.
+2. One registry, one client factory, one record type. Each exists
+   exactly once; everything else uses them.
+3. AWS errors are expected and degrade gracefully (empty key plus a
+   warning). Anything else is a bug and is allowed to crash.
+4. Decisions live in `docs/adr/`; product direction lives in
+   `PRODUCT.md`.
+
+## Adding a service
+
+1. Create `services/<name>_service.py`: a `Describe` spec dict + a
+   3-line `scan_<name>` (copy `vpc_service.py`), plus a
+   `process_<name>_output` that builds `Resource` records.
+2. Register it: one entry in `services/registry.py`.
+3. Test it: `tests/test_<name>_scanner.py` (moto, written failing
+   first) and add the processor to `tests/test_resource_shape.py`.
+4. Update the README services table.
+
+## How changes are verified
+
+- `poetry run pytest` — the whole suite runs without AWS credentials
+  (moto fakes AWS).
+- `scripts/e2e-diff.sh` — after merging, scans real AWS with the code
+  before and after the merge and diffs the output. Run it plain and
+  with `--tag-key/--tag-value` (the two paths are different code).
