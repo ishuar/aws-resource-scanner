@@ -125,6 +125,12 @@ def _extract_service_and_type_from_arn(arn: str) -> tuple[str, str]:
             service = parts[2]
             resource_part = parts[5]
 
+            # S3 bucket ARNs (arn:aws:s3:::name) carry no type segment —
+            # the resource part IS the bucket name. Use the same
+            # "s3:bucket" vocabulary as the per-service scanner.
+            if service == "s3":
+                return "s3", "bucket"
+
             # Handle different resource formats
             if "/" in resource_part:
                 resource_type = resource_part.split("/")[0]

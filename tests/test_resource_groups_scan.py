@@ -153,13 +153,10 @@ class TestTagScanFlattensEndToEnd:
         )
 
         records = {r["resource_type"]: r for r in json.loads(out.read_text())}
-        # RGTA side flattens generically with real ARN/id. (S3 ARNs carry
-        # no type segment, so the derived type embeds the bucket name —
-        # long-standing upstream behaviour this end-to-end test documents.)
-        assert records["s3:tagged-bucket"]["resource_id"] == "tagged-bucket"
-        assert (
-            records["s3:tagged-bucket"]["resource_arn"] == "arn:aws:s3:::tagged-bucket"
-        )
+        # RGTA side flattens generically with real ARN/id; S3 records use
+        # the same s3:bucket vocabulary as the per-service scanner.
+        assert records["s3:bucket"]["resource_id"] == "tagged-bucket"
+        assert records["s3:bucket"]["resource_arn"] == "arn:aws:s3:::tagged-bucket"
         # Merged autoscaling side flattens through its service processor —
         # the exact hand-off the regression mangled.
         assert records["autoscaling:auto_scaling_group"]["resource_id"] == "prod-asg"
